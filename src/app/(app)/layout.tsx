@@ -22,12 +22,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <div className="flex flex-col w-full">
-        <MobileHeader />
-        <SidebarInset>
-          {children}
-        </SidebarInset>
+      <div className="md:flex">
+        <AppSidebar />
+        <main className="flex-1">
+          <MobileHeader />
+          <SidebarInset>
+            {children}
+          </SidebarInset>
+        </main>
       </div>
     </SidebarProvider>
   );

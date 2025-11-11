@@ -32,7 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/wishlist", label: "Mi Lista de Deseos", icon: Gift }, // badge: "3" 
+  { href: "/wishlist", label: "Mi Lista de Deseos", icon: Gift },
   { href: "/participants", label: "Participantes", icon: Users },
   { href: "/profile", label: "Mi Perfil", icon: UserCircle },
 ];
@@ -63,12 +63,9 @@ export default function AppSidebar() {
 
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="none" className="h-screen sticky top-0">
       <SidebarHeader>
-        <div className="flex items-center justify-between">
-          <Logo />
-          <SidebarTrigger className="hidden md:flex" />
-        </div>
+        <Logo />
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
@@ -81,7 +78,6 @@ export default function AppSidebar() {
                     ? pathname === item.href
                     : pathname.startsWith(item.href)
                 }
-                tooltip={item.label}
               >
                 <Link href={item.href}>
                   <item.icon />
@@ -95,14 +91,14 @@ export default function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         {user && (
-          <div className="flex items-center gap-2">
-            <Avatar className="size-8">
+          <div className="flex items-center gap-3 p-2">
+            <Avatar className="size-9">
               {user.photoURL && <AvatarImage src={user.photoURL} data-ai-hint="person face" />}
               <AvatarFallback>{user.displayName?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+            <div className="flex flex-col">
               <span className="text-sm font-semibold text-sidebar-foreground">{user.displayName}</span>
-              <span className="text-xs text-sidebar-foreground/70">
+              <span className="text-xs text-sidebar-foreground/70 truncate">
                 {user.email}
               </span>
             </div>
@@ -110,7 +106,7 @@ export default function AppSidebar() {
         )}
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={handleSignOut} tooltip="Cerrar Sesión">
+            <SidebarMenuButton onClick={handleSignOut}>
                 <LogOut />
                 <span>Cerrar Sesión</span>
             </SidebarMenuButton>
@@ -121,9 +117,9 @@ export default function AppSidebar() {
   );
 }
 
-const MobileHeader = () => {
+export const MobileHeader = () => {
   return (
-    <header className="flex md:hidden items-center justify-between p-2 border-b">
+    <header className="flex md:hidden items-center justify-between p-2 border-b sticky top-0 bg-background z-10">
       <Logo />
       <SidebarTrigger>
         <Button size="icon" variant="ghost">
@@ -133,5 +129,3 @@ const MobileHeader = () => {
     </header>
   );
 };
-
-export { MobileHeader };
