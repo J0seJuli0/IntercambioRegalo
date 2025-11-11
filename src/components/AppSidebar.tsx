@@ -125,7 +125,7 @@ const MobileHeader = () => {
   return (
     <header className="flex md:hidden items-center justify-between p-2 border-b">
       <Logo />
-      <SidebarTrigger asChild>
+      <SidebarTrigger>
         <Button size="icon" variant="ghost">
           <PanelLeft />
         </Button>
