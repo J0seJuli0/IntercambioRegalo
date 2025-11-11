@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import Logo from "@/components/Logo";
-import { useAuth } from "@/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -30,6 +31,7 @@ const formSchema = z.object({
 
 export default function SignupPage() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -44,10 +46,24 @@ export default function SignupPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
+      // 1. Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      await updateProfile(userCredential.user, {
+      const user = userCredential.user;
+
+      // 2. Update user profile in Firebase Auth
+      await updateProfile(user, {
         displayName: values.fullName,
       });
+
+      // 3. Create user document in Firestore
+      const userRef = doc(firestore, "users", user.uid);
+      await setDoc(userRef, {
+        id: user.uid,
+        name: values.fullName,
+        email: values.email,
+        profilePictureUrl: user.photoURL,
+      });
+
       toast({
         title: "¡Cuenta creada!",
         description: "Tu cuenta ha sido creada exitosamente.",
@@ -55,10 +71,14 @@ export default function SignupPage() {
       router.push('/dashboard');
     } catch (error: any) {
       console.error(error);
+       let description = "Ocurrió un error. Por favor, inténtalo de nuevo.";
+      if (error.code === 'auth/email-already-in-use') {
+        description = "Este correo electrónico ya está en uso. Por favor, inicia sesión o usa otro correo.";
+      }
       toast({
         variant: "destructive",
         title: "Error al crear la cuenta",
-        description: error.message || "Ocurrió un error. Por favor, inténtalo de nuevo.",
+        description,
       });
     }
   }

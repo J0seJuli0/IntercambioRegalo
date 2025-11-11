@@ -1,11 +1,9 @@
 'use client';
 import Link from "next/link";
 import { ArrowRight, Gift } from "lucide-react";
-import Image from 'next/image';
-import { useUser } from "@/firebase";
-
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { useUser, useFirestore, useCollection } from "@/firebase";
+import { collection } from "firebase/firestore";
+import { useMemoFirebase } from "@/firebase/provider";
 import {
   Card,
   CardContent,
@@ -15,16 +13,36 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Gift as GiftType } from "@/lib/types";
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
-  // TODO: Replace with real data from Firestore
-  const assignment = null; //getAssignmentForGiver(currentUserId);
-  const receiver = null; //assignment ? getUserById(assignment.receiverId) : null;
-  const userWishlist: any[] = []; //getWishlistByUserId(currentUserId);
+  const firestore = useFirestore();
+
+  // TODO: Replace with real assignment data
+  const assignment = null; 
+  const receiver = null;
+
+  const wishlistQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(firestore, `users/${user.uid}/wishlistItems`);
+  }, [firestore, user]);
+
+  const { data: userWishlist, isLoading: isWishlistLoading } = useCollection<GiftType>(wishlistQuery);
 
   if (isUserLoading) {
-    return <div>Cargando...</div>;
+    return (
+       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+        <Skeleton className="h-10 w-1/2" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <Skeleton className="h-48 lg:col-span-4" />
+          <Skeleton className="h-48 lg:col-span-3" />
+        </div>
+      </div>
+    );
   }
   
   if (!user) {
@@ -60,7 +78,9 @@ export default function DashboardPage() {
                 </div>
               </>
             ) : (
-              <p>Tu amigo secreto aún no ha sido asignado. ¡Vuelve pronto!</p>
+              <div className="flex items-center justify-center text-center p-4 bg-secondary rounded-lg w-full">
+                <p className="text-muted-foreground">Tu amigo secreto aún no ha sido asignado. ¡Vuelve pronto!</p>
+              </div>
             )}
           </CardContent>
           {receiver && (
@@ -82,7 +102,13 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {userWishlist.length > 0 ? (
+            {isWishlistLoading ? (
+               <div className="space-y-2">
+                  <Skeleton className="h-6 w-full" />
+                  <Skeleton className="h-6 w-full" />
+                  <Skeleton className="h-6 w-2/3" />
+                </div>
+            ) : userWishlist && userWishlist.length > 0 ? (
               <ul className="space-y-2">
                 {userWishlist.slice(0, 3).map((item) => (
                   <li key={item.id} className="flex items-center gap-3">

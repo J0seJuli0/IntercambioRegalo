@@ -1,29 +1,28 @@
 'use client';
 import { WishlistClientPage } from "@/components/wishlist/WishlistClientPage";
 import { useUser } from "@/firebase";
+import Loading from "../loading";
+import type { User } from "@/lib/types";
 
 export default function MyWishlistPage() {
   const { user, isUserLoading } = useUser();
-  // TODO: In a real app, you'd get the user ID from the session
-  // const user = getUserById(currentUserId);
-  // const wishlist = getWishlistByUserId(currentUserId);
-  const wishlist: any[] = [];
 
   if (isUserLoading) {
-    return <div>Cargando...</div>;
+    return <Loading />;
   }
   
   if (!user) {
-    // Handle user not found, maybe redirect to login
-    return <div>User not found.</div>;
+    // This should be handled by the layout, but as a fallback
+    return <div>Usuario no encontrado. Por favor, inicia sesión.</div>;
   }
 
-  const mockUser = {
+  // Create a User object that matches our application's type
+  const appUser: User = {
     id: user.uid,
     name: user.displayName || user.email || 'Usuario',
-    email: user.email || ''
+    email: user.email || '',
+    profilePictureUrl: user.photoURL
   }
 
-
-  return <WishlistClientPage user={mockUser} wishlist={wishlist} isCurrentUser={true} />;
+  return <WishlistClientPage user={appUser} isCurrentUser={true} />;
 }
