@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Plus, Sparkles, Trash2, Edit, Link as LinkIcon, DollarSign, Gift } from 'lucide-react';
+import { Plus, Trash2, Edit, Link as LinkIcon, DollarSign, Gift } from 'lucide-react';
 import { collection, doc } from 'firebase/firestore';
 import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/provider';
@@ -13,11 +13,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { AddGiftDialog, NewGift } from './AddGiftDialog';
-import { GenerateWishlistDialog } from '@/components/ai/GenerateWishlistDialog';
 import AIGiftSuggester from '../ai/AIGiftSuggester';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
+import { Sparkles } from 'lucide-react';
 
 type WishlistClientPageProps = {
   user: User;
@@ -26,11 +26,9 @@ type WishlistClientPageProps = {
 
 export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPageProps) {
   const firestore = useFirestore();
-  const { user: currentUser } = useUser();
   const { toast } = useToast();
 
   const [isAddGiftOpen, setAddGiftOpen] = useState(false);
-  const [isGenerateAIOpen, setGenerateAIOpen] = useState(false);
   const [editingGift, setEditingGift] = useState<GiftType | null>(null);
 
   const wishlistCollectionRef = useMemoFirebase(() => {
@@ -78,16 +76,6 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
      }
   };
   
-  const handleGeneratedWishlist = (items: NewGift[]) => {
-     if (!wishlistCollectionRef) return;
-     try {
-       items.forEach(item => addDocumentNonBlocking(wishlistCollectionRef, { ...item, isPurchased: false, userId: user.id }));
-       toast({ title: '¡Lista de deseos generada!', description: 'Hemos añadido nuevas ideas a tu lista.' });
-     } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error al generar', description: error.message });
-     }
-  };
-  
   const handleTogglePurchased = (gift: GiftType) => {
     if (!user) return;
     try {
@@ -110,9 +98,6 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
               <Button onClick={handleAddGift}>
                 <Plus className="mr-2 h-4 w-4" /> Añadir Regalo
               </Button>
-              <Button variant="outline" onClick={() => setGenerateAIOpen(true)}>
-                <Sparkles className="mr-2 h-4 w-4" /> Generar con IA
-              </Button>
             </>
           ) : (
              <AIGiftSuggester wishlistItems={wishlist?.map(i => i.name) || []} userInterests={user.interests || ''} />
@@ -120,27 +105,27 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
         </div>
       </div>
       {isWishlistLoading ? (
-         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-             <Card key={i}>
-                <Skeleton className="h-48 w-full rounded-t-lg" />
-                <CardContent className="p-4">
+             <Card key={i} className="flex flex-col overflow-hidden rounded-lg shadow-lg">
+                <Skeleton className="h-48 w-full" />
+                <CardContent className="p-4 flex-1">
                   <Skeleton className="h-6 w-3/4 mb-2" />
                   <Skeleton className="h-4 w-full" />
                    <Skeleton className="h-4 w-1/2 mt-1" />
                 </CardContent>
-                <CardFooter className="p-4">
+                <CardFooter className="p-4 bg-gray-50 dark:bg-gray-800">
                    <Skeleton className="h-8 w-32" />
                 </CardFooter>
              </Card>
           ))}
          </div>
       ) : wishlist && wishlist.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {wishlist.map((gift) => {
             const giftImage = { imageUrl: `https://picsum.photos/seed/${gift.id}/400/300`, description: gift.name, imageHint: 'gift' };
             return (
-              <Card key={gift.id} className="flex flex-col">
+              <Card key={gift.id} className="flex flex-col overflow-hidden rounded-lg shadow-lg transition-transform hover:scale-105 duration-300">
                 <CardHeader className="p-0">
                   <Image
                     src={gift.imageUrl || giftImage.imageUrl}
@@ -148,7 +133,7 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
                     data-ai-hint={giftImage.imageHint}
                     width={400}
                     height={300}
-                    className="object-cover rounded-t-lg aspect-[4/3]"
+                    className="object-cover w-full aspect-[4/3]"
                   />
                 </CardHeader>
                 <CardContent className="p-4 flex-1">
@@ -159,20 +144,18 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
                     {gift.link && <a href={gift.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-primary hover:underline"><LinkIcon className="size-4" /><span>Tienda</span></a>}
                   </div>
                 </CardContent>
-                <CardFooter className="p-4 pt-0">
+                <CardFooter className="p-4 pt-0 bg-gray-50 dark:bg-gray-800">
                   {isCurrentUser ? (
-                     <div className="w-full flex justify-between items-center">
+                     <div className="w-full flex justify-end items-center gap-2">
                         {gift.isPurchased && <Badge variant="secondary">Comprado</Badge>}
-                        <div className="flex gap-2 ml-auto">
-                          <Button variant="ghost" size="icon" onClick={() => handleEditGift(gift)}><Edit className="size-4" /></Button>
-                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteGift(gift.id)}><Trash2 className="size-4" /></Button>
-                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => handleEditGift(gift)}><Edit className="size-4" /></Button>
+                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDeleteGift(gift.id)}><Trash2 className="size-4" /></Button>
                      </div>
                   ) : (
                     <div className="flex items-center space-x-2">
-                      <Checkbox id={`purchased-${gift.id}`} checked={gift.isPurchased} onCheckedChange={() => handleTogglePurchased(gift)} />
+                      <Checkbox id={`purchased-${gift.id}`} checked={gift.isPurchased} onCheckedChange={() => handleTogglePurchased(gift)} disabled={gift.isPurchased && gift.purchasedBy !== user?.id } />
                       <Label htmlFor={`purchased-${gift.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        Marcar como comprado
+                        {gift.isPurchased ? 'Comprado' : 'Marcar como comprado'}
                       </Label>
                     </div>
                   )}
@@ -204,11 +187,6 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
         setOpen={setAddGiftOpen} 
         onSave={handleAddOrUpdateGift}
         gift={editingGift}
-      />
-      <GenerateWishlistDialog 
-        isOpen={isGenerateAIOpen}
-        setOpen={setGenerateAIOpen}
-        onGenerated={handleGeneratedWishlist}
       />
     </div>
   );
