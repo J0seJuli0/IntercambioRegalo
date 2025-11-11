@@ -1,3 +1,58 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "landing-hero",
+      "description": "A collection of beautifully wrapped Christmas presents.",
+      "imageUrl": "https://images.unsplash.com/photo-1647221598398-934ed5cb0e4f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxnaWZ0JTIwYm94ZXN8ZW58MHx8fHwxNzYyODgxMzUzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "gift boxes"
+    },
+    {
+      "id": "gift-book",
+      "description": "An open book on a wooden table.",
+      "imageUrl": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxib29rfGVufDB8fHx8MTc2Mjg0NjAwMHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "book"
+    },
+    {
+      "id": "gift-headphones",
+      "description": "Modern wireless headphones on a colorful background.",
+      "imageUrl": "https://images.unsplash.com/photo-1546435770-a3e426bf472b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxoZWFkcGhvbmVzfGVufDB8fHx8MTc2Mjg4MTM1M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "headphones"
+    },
+    {
+      "id": "gift-coffee",
+      "description": "A bag of artisanal coffee beans next to a steaming mug.",
+      "imageUrl": "https://images.unsplash.com/photo-1580933073521-dc49ac0d4e6a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxjb2ZmZWUlMjBiZWFuc3xlbnwwfHx8fDE3NjI3OTA3NDl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "coffee beans"
+    },
+    {
+      "id": "gift-lego",
+      "description": "A colorful assortment of LEGO bricks.",
+      "imageUrl": "https://images.unsplash.com/photo-1558244661-d248897f7bc4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8bGVnb3xlbnwwfHx8fDE3NjI4ODEzNTN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "lego"
+    },
+    {
+      "id": "gift-shoes",
+      "description": "A pair of new running shoes.",
+      "imageUrl": "https://images.unsplash.com/photo-1571008887538-b36bb32f4571?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxydW5uaW5nJTIwc2hvZXN8ZW58MHx8fHwxNzYyODcyMDM4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "running shoes"
+    },
+    {
+      "id": "gift-pottery",
+      "description": "Hands shaping clay on a pottery wheel.",
+      "imageUrl": "https://images.unsplash.com/photo-1520408222757-6f9f95d87d5d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwb3R0ZXJ5fGVufDB8fHx8MTc2MjgxMDcyOXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "pottery"
+    },
+    {
+      "id": "gift-plant",
+      "description": "A lush green houseplant in a stylish pot.",
+      "imageUrl": "https://images.unsplash.com/photo-1615213861173-21494d7354de?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxob3VzZXBsYW50fGVufDB8fHx8MTc2Mjg4MTM1M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "houseplant"
+    },
+    {
+      "id": "gift-keyboard",
+      "description": "A mechanical keyboard with custom keycaps.",
+      "imageUrl": "https://images.unsplash.com/photo-1664813398575-819b46e5ab8d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8bWVjaGFuaWNhbCUyMGtleWJvYXJkfGVufDB8fHx8MTc2MjgwNDQ4MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mechanical keyboard"
+    }
+  ]
 }
