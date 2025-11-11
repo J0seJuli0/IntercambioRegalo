@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection } from "firebase/firestore";
+import { useMemoFirebase } from "@/firebase/provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ParticipantsPage() {
   const firestore = useFirestore();
-  const { data: users, isLoading } = useCollection<User>(collection(firestore, 'users'));
+  const usersQuery = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const { data: users, isLoading } = useCollection<User>(usersQuery);
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredUsers = users?.filter(user => 
