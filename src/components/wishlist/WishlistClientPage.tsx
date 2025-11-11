@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { Plus, Sparkles, Trash2, Edit, Link as LinkIcon, DollarSign, Gift } from 'lucide-react';
-import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/provider';
 
 import type { Gift as GiftType, User } from '@/lib/types';
@@ -50,16 +50,16 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
     setAddGiftOpen(true);
   };
 
-  const handleAddOrUpdateGift = async (giftData: NewGift | GiftType) => {
+  const handleAddOrUpdateGift = (giftData: NewGift | GiftType) => {
     if (!wishlistCollectionRef) return;
 
     try {
       if ('id' in giftData) { // Existing gift
         const giftRef = doc(firestore, `users/${user.id}/wishlistItems`, giftData.id);
-        await updateDoc(giftRef, { ...giftData });
+        updateDocumentNonBlocking(giftRef, { ...giftData });
         toast({ title: '¡Regalo actualizado!', description: `${giftData.name} ha sido actualizado en tu lista.` });
       } else { // New gift
-        await addDoc(wishlistCollectionRef, { ...giftData, isPurchased: false, userId: user.id });
+        addDocumentNonBlocking(wishlistCollectionRef, { ...giftData, isPurchased: false, userId: user.id });
         toast({ title: '¡Regalo añadido!', description: `${giftData.name} ha sido añadido a tu lista.` });
       }
     } catch (error: any) {
@@ -67,33 +67,32 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
     }
   };
 
-  const handleDeleteGift = async (giftId: string) => {
+  const handleDeleteGift = (giftId: string) => {
      if (!user) return;
      try {
        const giftRef = doc(firestore, `users/${user.id}/wishlistItems`, giftId);
-       await deleteDoc(giftRef);
+       deleteDocumentNonBlocking(giftRef);
        toast({ title: 'Regalo eliminado', description: 'El regalo ha sido eliminado de tu lista.' });
      } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error al eliminar', description: error.message });
      }
   };
   
-  const handleGeneratedWishlist = async (items: NewGift[]) => {
+  const handleGeneratedWishlist = (items: NewGift[]) => {
      if (!wishlistCollectionRef) return;
      try {
-       const promises = items.map(item => addDoc(wishlistCollectionRef, { ...item, isPurchased: false, userId: user.id }));
-       await Promise.all(promises);
+       items.forEach(item => addDocumentNonBlocking(wishlistCollectionRef, { ...item, isPurchased: false, userId: user.id }));
        toast({ title: '¡Lista de deseos generada!', description: 'Hemos añadido nuevas ideas a tu lista.' });
      } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error al generar', description: error.message });
      }
   };
   
-  const handleTogglePurchased = async (gift: GiftType) => {
+  const handleTogglePurchased = (gift: GiftType) => {
     if (!user) return;
     try {
       const giftRef = doc(firestore, `users/${user.id}/wishlistItems`, gift.id);
-      await updateDoc(giftRef, { isPurchased: !gift.isPurchased });
+      updateDocumentNonBlocking(giftRef, { isPurchased: !gift.isPurchased });
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error al actualizar', description: error.message });
     }

@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import Logo from "@/components/Logo";
-import { useAuth, useFirestore } from "@/firebase";
+import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -57,12 +57,12 @@ export default function SignupPage() {
 
       // 3. Create user document in Firestore
       const userRef = doc(firestore, "users", user.uid);
-      await setDoc(userRef, {
+      setDocumentNonBlocking(userRef, {
         id: user.uid,
         name: values.fullName,
         email: values.email,
         profilePictureUrl: user.photoURL,
-      });
+      }, { merge: false });
 
       toast({
         title: "¡Cuenta creada!",

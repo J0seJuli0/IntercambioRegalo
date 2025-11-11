@@ -3,9 +3,9 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useAuth, useUser, useFirestore } from "@/firebase";
+import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { updateProfile } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -54,15 +54,20 @@ export default function ProfilePage() {
   }, [user, form]);
   
   const onSubmit = async (values: z.infer<typeof profileSchema>) => {
-    if (!user) return;
+    if (!user || !auth.currentUser) return;
+
+    // Use a submitting state from the form to prevent double-submits
+    if (form.formState.isSubmitting) return;
+
+    form.control.register('name', { disabled: true });
 
     try {
       // Update Firebase Auth profile
-      await updateProfile(user, { displayName: values.name });
+      await updateProfile(auth.currentUser, { displayName: values.name });
 
       // Update Firestore user document
       const userRef = doc(firestore, "users", user.uid);
-      await setDoc(userRef, { name: values.name, email: values.email }, { merge: true });
+      setDocumentNonBlocking(userRef, { name: values.name, email: values.email }, { merge: true });
 
       toast({
         title: "Perfil actualizado",
@@ -76,6 +81,8 @@ export default function ProfilePage() {
         title: "Error al actualizar",
         description: error.message || "No se pudo guardar tu información.",
       });
+    } finally {
+        form.control.register('name', { disabled: false });
     }
   };
   
