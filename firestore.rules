@@ -29,11 +29,9 @@ service cloud.firestore {
     /**
      * @description Protects user profile information.
      * @path /users/{userId}
-     * @allow (create) - Authenticated user can create their own profile.
-     * @allow (get, update, delete) - Authenticated user can access and modify their own profile.
-     * @deny (create) - An unauthenticated user can not create a profile.
-     * @deny (update, delete) - A user cannot modify another user's profile.
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list, write, delete) - Authenticated user can access and modify their own profile.
+     * @deny - An unauthenticated user cannot access or modify profiles. A user cannot modify another user's profile.
+     * @principle Enforces document ownership.
      */
     match /users/{userId} {
       function isSignedIn() {
@@ -43,16 +41,22 @@ service cloud.firestore {
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
+      
+      // We are creating a new document
+      function isCreating() {
+        return resource == null;
+      }
 
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+      // We are updating an existing document
+      function isUpdating() {
+        return resource != null;
       }
 
       allow get: if isOwner(userId);
       allow list: if isSignedIn();
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow write: if isOwner(userId) && 
+                      (isCreating() && request.resource.data.id == userId || isUpdating());
+      allow delete: if isOwner(userId) && isUpdating();
     }
 
     /**
@@ -69,10 +73,6 @@ service cloud.firestore {
 
       function isOwner(userId) {
         return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
       }
 
       // Any authenticated user can view a wishlist. Only owner can modify.
