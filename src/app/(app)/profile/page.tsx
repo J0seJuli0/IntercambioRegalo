@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { updateProfile } from "firebase/auth";
-import { doc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, User as UserIcon, Image as ImageIcon, Link as LinkIcon } from "lucide-react";
 
@@ -56,7 +56,7 @@ export default function ProfilePage() {
     if (user) {
       // We need to fetch the full user doc from firestore to get the base64 url
        const userRef = doc(firestore, "users", user.uid);
-       const unsub = doc(firestore, "users", user.uid).onSnapshot((doc) => {
+       const unsub = onSnapshot(userRef, (doc) => {
         if (doc.exists()) {
           const userData = doc.data();
            const initialValues = {
@@ -82,11 +82,8 @@ export default function ProfilePage() {
          updateData.profilePictureUrl = photoURL;
        }
        
-       // Only update displayName in Auth, not the photoURL if it's a base64 string
        await updateProfile(auth.currentUser, { 
          displayName: name,
-         // Only set photoURL in auth if it's a real URL, not base64
-         ...((photoURL && photoURL.startsWith('http')) && { photoURL }),
        });
 
        setDocumentNonBlocking(userRef, updateData, { merge: true });
