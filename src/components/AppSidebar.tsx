@@ -10,7 +10,7 @@ import {
   Users,
   PanelLeft,
 } from "lucide-react";
-
+import { doc, onSnapshot } from "firebase/firestore";
 import {
   Sidebar,
   SidebarContent,
@@ -24,9 +24,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Logo from "./Logo";
 import { Button } from "./ui/button";
-import { useAuth, useUser } from "@/firebase";
+import { useAuth, useUser, useFirestore } from "@/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -39,8 +40,22 @@ export default function AppSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
+
+   useEffect(() => {
+    if (user) {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const unsubscribe = onSnapshot(userDocRef, (doc) => {
+        if (doc.exists()) {
+          setProfilePictureUrl(doc.data().profilePictureUrl || null);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [user, firestore]);
 
   const handleSignOut = async () => {
     try {
@@ -90,7 +105,7 @@ export default function AppSidebar() {
         {user && (
           <div className="flex items-center gap-3 p-2">
             <Avatar className="size-9">
-              <AvatarImage src={user.photoURL || `https://avatar.vercel.sh/${user.uid}.png`} data-ai-hint="person face" />
+              <AvatarImage src={profilePictureUrl || user.photoURL || `https://avatar.vercel.sh/${user.uid}.png`} data-ai-hint="person face" />
               <AvatarFallback>{user.displayName?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col overflow-hidden">

@@ -54,28 +54,39 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
-      const initialValues = {
-        name: user.displayName || "",
-        email: user.email || "",
-        profilePictureUrl: user.photoURL || "",
-      };
-      form.reset(initialValues);
-      setAvatarPreview(user.photoURL);
+      // We need to fetch the full user doc from firestore to get the base64 url
+       const userRef = doc(firestore, "users", user.uid);
+       const unsub = doc(firestore, "users", user.uid).onSnapshot((doc) => {
+        if (doc.exists()) {
+          const userData = doc.data();
+           const initialValues = {
+            name: user.displayName || userData.name || "",
+            email: user.email || "",
+            profilePictureUrl: userData.profilePictureUrl || user.photoURL || "",
+          };
+          form.reset(initialValues);
+          setAvatarPreview(userData.profilePictureUrl || user.photoURL);
+        }
+       });
+
+       return () => unsub();
     }
-  }, [user, form]);
+  }, [user, form, firestore]);
   
   const handleProfileUpdate = async (name: string, photoURL?: string) => {
      if (!user || !auth.currentUser) return;
      try {
        const userRef = doc(firestore, "users", user.uid);
        const updateData: { name: string; profilePictureUrl?: string } = { name };
-        if (photoURL !== undefined) { // Check for undefined to allow clearing the URL
+        if (photoURL !== undefined) { 
          updateData.profilePictureUrl = photoURL;
        }
        
+       // Only update displayName in Auth, not the photoURL if it's a base64 string
        await updateProfile(auth.currentUser, { 
          displayName: name,
-         ...(photoURL !== undefined && { photoURL }),
+         // Only set photoURL in auth if it's a real URL, not base64
+         ...((photoURL && photoURL.startsWith('http')) && { photoURL }),
        });
 
        setDocumentNonBlocking(userRef, updateData, { merge: true });
@@ -111,8 +122,16 @@ export default function ProfilePage() {
  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Limit file size to prevent very large base64 strings
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        toast({
+          variant: "destructive",
+          title: "Archivo demasiado grande",
+          description: "Por favor, elige una imagen de menos de 2MB.",
+        });
+        return;
+      }
       setSelectedFile(file);
-      // Create a temporary URL for preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatarPreview(reader.result as string);
@@ -144,7 +163,7 @@ export default function ProfilePage() {
         title: "¡Foto subida!",
         description: "Tu foto de perfil ha sido actualizada.",
       });
-      setSelectedFile(null); // Reset after upload
+      setSelectedFile(null); 
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -166,7 +185,6 @@ export default function ProfilePage() {
     if (form.formState.isSubmitting) return;
 
     try {
-      // We only update the name here, as photoURL is handled by its own buttons
       await handleProfileUpdate(values.name);
       toast({
         title: "Perfil actualizado",
