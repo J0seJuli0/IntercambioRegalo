@@ -15,6 +15,7 @@ export type Gift = {
   imageUrl?: string;
   approximatePrice?: string;
   isPurchased: boolean;
+  purchasedBy?: string;
 };
 
 export type Wishlist = {
