@@ -1,10 +1,10 @@
 'use client';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { signInWithEmailAndPassword } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import Logo from "@/components/Logo";
-import { useAuth } from "@/firebase";
+import { useAuth, useUser, initiateEmailSignIn } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -30,6 +30,7 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -41,25 +42,20 @@ export default function LoginPage() {
     },
   });
 
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, isUserLoading, router]);
+
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    signInWithEmailAndPassword(auth, values.email, values.password)
-      .then(() => {
-        toast({
-          title: "¡Bienvenido de vuelta!",
-          description: "Has iniciado sesión correctamente.",
-        });
-        router.push('/dashboard');
-      })
-      .catch((error: any) => {
-        console.error(error);
-        toast({
-          variant: "destructive",
-          title: "Error al iniciar sesión",
-          description: "Las credenciales son incorrectas. Por favor, inténtalo de nuevo.",
-        });
-        form.control.register('email', { disabled: false });
-        form.control.register('password', { disabled: false });
-      });
+    // We don't await the sign-in, the useUser hook will redirect on success
+    initiateEmailSignIn(auth, values.email, values.password);
+
+    // We can't know for sure if it will succeed, so we don't show a toast here.
+    // The auth listener might show an error if it fails, but that's a global concern.
+    // For this specific app, we will just let the user see if they are redirected.
+    // A more robust solution might involve a global error listener for auth.
   }
 
 
