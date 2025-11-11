@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Plus, Sparkles, Trash2, Edit, Link as LinkIcon, DollarSign } from 'lucide-react';
+import { Plus, Sparkles, Trash2, Edit, Link as LinkIcon, DollarSign, Gift } from 'lucide-react';
 import { collection, doc, addDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useCollection, useFirestore, useUser } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/provider';
 
-import type { Gift, User } from '@/lib/types';
+import type { Gift as GiftType, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -31,26 +31,26 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
 
   const [isAddGiftOpen, setAddGiftOpen] = useState(false);
   const [isGenerateAIOpen, setGenerateAIOpen] = useState(false);
-  const [editingGift, setEditingGift] = useState<Gift | null>(null);
+  const [editingGift, setEditingGift] = useState<GiftType | null>(null);
 
   const wishlistCollectionRef = useMemoFirebase(() => {
     if (!user) return null;
     return collection(firestore, `users/${user.id}/wishlistItems`);
   }, [firestore, user]);
 
-  const { data: wishlist, isLoading: isWishlistLoading } = useCollection<Gift>(wishlistCollectionRef);
+  const { data: wishlist, isLoading: isWishlistLoading } = useCollection<GiftType>(wishlistCollectionRef);
 
   const handleAddGift = () => {
     setEditingGift(null);
     setAddGiftOpen(true);
   };
   
-  const handleEditGift = (gift: Gift) => {
+  const handleEditGift = (gift: GiftType) => {
     setEditingGift(gift);
     setAddGiftOpen(true);
   };
 
-  const handleAddOrUpdateGift = async (giftData: NewGift | Gift) => {
+  const handleAddOrUpdateGift = async (giftData: NewGift | GiftType) => {
     if (!wishlistCollectionRef) return;
 
     try {
@@ -89,7 +89,7 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
      }
   };
   
-  const handleTogglePurchased = async (gift: Gift) => {
+  const handleTogglePurchased = async (gift: GiftType) => {
     if (!user) return;
     try {
       const giftRef = doc(firestore, `users/${user.id}/wishlistItems`, gift.id);
