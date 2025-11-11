@@ -46,12 +46,9 @@ export default function RegisterUserPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      // We don't need a separate app instance. We can use the main auth instance.
-      // Firebase automatically signs in the new user, but our layout logic will keep the admin logged in.
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // Create user document in Firestore with the selected role
       const userRef = doc(firestore, "users", user.uid);
       setDocumentNonBlocking(userRef, {
         id: user.uid,
@@ -66,7 +63,6 @@ export default function RegisterUserPage() {
         description: `La cuenta para ${values.fullName} ha sido creada exitosamente.`,
       });
 
-      // Reset form after successful creation
       form.reset();
 
     } catch (error: any) {
