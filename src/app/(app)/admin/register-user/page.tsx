@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  getAuth,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
 import { doc } from "firebase/firestore";
@@ -18,20 +17,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useFirestore, setDocumentNonBlocking } from "@/firebase";
+import { useFirestore, setDocumentNonBlocking, useAuth } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { firebaseConfig } from "@/firebase/config";
-import { initializeApp, getApps } from "firebase/app";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-// Create a secondary Firebase app instance to manage user creation
-// This avoids conflicts with the main app's authentication state.
-const adminApp = !getApps().some(app => app.name === 'admin-sdk') 
-  ? initializeApp(firebaseConfig, 'admin-sdk') 
-  : getApps().find(app => app.name === 'admin-sdk')!;
-
-const adminAuth = getAuth(adminApp);
 
 const formSchema = z.object({
   fullName: z.string().min(1, { message: "El nombre completo es requerido." }),
@@ -42,6 +31,7 @@ const formSchema = z.object({
 
 export default function RegisterUserPage() {
   const firestore = useFirestore();
+  const auth = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -56,10 +46,12 @@ export default function RegisterUserPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(adminAuth, values.email, values.password);
+      // We don't need a separate app instance. We can use the main auth instance.
+      // Firebase automatically signs in the new user, but our layout logic will keep the admin logged in.
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
-      // Create user document in Firestore with 'user' role
+      // Create user document in Firestore with the selected role
       const userRef = doc(firestore, "users", user.uid);
       setDocumentNonBlocking(userRef, {
         id: user.uid,
