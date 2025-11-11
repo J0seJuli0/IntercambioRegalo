@@ -1,9 +1,13 @@
+'use client';
 import Link from "next/link";
-import { users } from "@/lib/mock-data";
+// import { users } from "@/lib/mock-data";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
+
+// TODO: Fetch users from Firestore
+const users: any[] = [];
 
 export default function ParticipantsPage() {
   return (

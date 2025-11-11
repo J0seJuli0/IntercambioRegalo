@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Gift,
   Home,
   LogOut,
   UserCircle,
   Users,
-  Settings,
   PanelLeft,
 } from "lucide-react";
 
@@ -27,17 +26,41 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Logo from "./Logo";
 import { Button } from "./ui/button";
+import { useAuth, useUser } from "@/firebase";
+import { signOut } from "firebase/auth";
+import { useToast } from "@/hooks/use-toast";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/wishlist", label: "Mi Lista de Deseos", icon: Gift, badge: "3" },
+  { href: "/wishlist", label: "Mi Lista de Deseos", icon: Gift }, // badge: "3" 
   { href: "/participants", label: "Participantes", icon: Users },
   { href: "/profile", label: "Mi Perfil", icon: UserCircle },
 ];
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const { isMobile } = useSidebar();
+  const { user } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      toast({
+        title: "Sesión cerrada",
+        description: "Has cerrado sesión correctamente.",
+      });
+      router.push('/');
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo cerrar la sesión. Por favor, inténtalo de nuevo.",
+      });
+    }
+  };
+
 
   return (
     <Sidebar>
@@ -71,25 +94,25 @@ export default function AppSidebar() {
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
-        <div className="flex items-center gap-2">
-          <Avatar className="size-8">
-            <AvatarImage src="https://picsum.photos/seed/user-avatar/40/40" data-ai-hint="person face" />
-            <AvatarFallback>A</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-semibold text-sidebar-foreground">Ana</span>
-            <span className="text-xs text-sidebar-foreground/70">
-              ana@example.com
-            </span>
+        {user && (
+          <div className="flex items-center gap-2">
+            <Avatar className="size-8">
+              {user.photoURL && <AvatarImage src={user.photoURL} data-ai-hint="person face" />}
+              <AvatarFallback>{user.displayName?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col group-data-[collapsible=icon]:hidden">
+              <span className="text-sm font-semibold text-sidebar-foreground">{user.displayName}</span>
+              <span className="text-xs text-sidebar-foreground/70">
+                {user.email}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Cerrar Sesión">
-              <Link href="/">
+            <SidebarMenuButton onClick={handleSignOut} tooltip="Cerrar Sesión">
                 <LogOut />
                 <span>Cerrar Sesión</span>
-              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -1,13 +1,9 @@
+'use client';
 import Link from "next/link";
 import { ArrowRight, Gift } from "lucide-react";
 import Image from 'next/image';
+import { useUser } from "@/firebase";
 
-import {
-  currentUserId,
-  getAssignmentForGiver,
-  getUserById,
-  getWishlistByUserId,
-} from "@/lib/mock-data";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,18 +17,25 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 export default function DashboardPage() {
-  const currentUser = getUserById(currentUserId);
-  const assignment = getAssignmentForGiver(currentUserId);
-  const receiver = assignment ? getUserById(assignment.receiverId) : null;
-  const userWishlist = getWishlistByUserId(currentUserId);
+  const { user, isUserLoading } = useUser();
+  // TODO: Replace with real data from Firestore
+  const assignment = null; //getAssignmentForGiver(currentUserId);
+  const receiver = null; //assignment ? getUserById(assignment.receiverId) : null;
+  const userWishlist: any[] = []; //getWishlistByUserId(currentUserId);
 
-  if (!currentUser) return null;
+  if (isUserLoading) {
+    return <div>Cargando...</div>;
+  }
+  
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight font-headline">
-          ¡Hola, {currentUser.name}! 👋
+          ¡Hola, {user.displayName || user.email}! 👋
         </h2>
       </div>
 
