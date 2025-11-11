@@ -1,0 +1,306 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the GiftMatch application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "User's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "User's last name."
+        },
+        "address": {
+          "type": "string",
+          "description": "User's physical address."
+        },
+        "profilePictureUrl": {
+          "type": "string",
+          "description": "URL to the user's profile picture.",
+          "format": "uri"
+        },
+        "emailVerificationCode": {
+          "type": "string",
+          "description": "The email verification code sent to the user's email.",
+          "format": "string"
+        },
+        "emailVerified": {
+          "type": "boolean",
+          "description": "Flag indicating whether the user's email has been verified."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "firstName",
+        "lastName"
+      ]
+    },
+    "WishlistItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "WishlistItem",
+      "type": "object",
+      "description": "Represents an item on a user's wishlist.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the WishlistItem entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N WishlistItem)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the desired gift."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the desired gift."
+        },
+        "purchaseUrl": {
+          "type": "string",
+          "description": "URL where the gift can be purchased.",
+          "format": "uri"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the gift's image.",
+          "format": "uri"
+        },
+        "priority": {
+          "type": "string",
+          "description": "Priority of the gift (e.g., High, Medium, Low)."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "description"
+      ]
+    },
+    "GiftExchange": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "GiftExchange",
+      "type": "object",
+      "description": "Represents a Secret Santa gift exchange event.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the GiftExchange entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the gift exchange event."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the gift exchange event."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Date and time when the gift exchange starts.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "Date and time when the gift exchange ends.",
+          "format": "date-time"
+        },
+        "budget": {
+          "type": "number",
+          "description": "Budget limit for the gifts in the exchange."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "startDate",
+        "endDate",
+        "budget"
+      ]
+    },
+    "ExchangeParticipant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ExchangeParticipant",
+      "type": "object",
+      "description": "Represents a user's participation in a gift exchange, including their assigned Secret Santa target.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ExchangeParticipant entity."
+        },
+        "giftExchangeId": {
+          "type": "string",
+          "description": "Reference to GiftExchange. (Relationship: GiftExchange 1:N ExchangeParticipant)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N ExchangeParticipant)"
+        },
+        "targetUserId": {
+          "type": "string",
+          "description": "Reference to User representing the participant's Secret Santa target. (Relationship: ExchangeParticipant 1:1 User)"
+        }
+      },
+      "required": [
+        "id",
+        "giftExchangeId",
+        "userId",
+        "targetUserId"
+      ]
+    },
+    "ChatMessage": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ChatMessage",
+      "type": "object",
+      "description": "Represents a chat message sent between users.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ChatMessage entity."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "Reference to User. The user who sent the message."
+        },
+        "recipientId": {
+          "type": "string",
+          "description": "Reference to User. The user who received the message.  If null, this is a group chat message."
+        },
+        "giftExchangeId": {
+          "type": "string",
+          "description": "Reference to GiftExchange. Used for group chat in a gift exchange."
+        },
+        "content": {
+          "type": "string",
+          "description": "The content of the chat message."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of when the message was sent.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "senderId",
+        "content",
+        "timestamp"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information. Path-based ownership ensures only the user can access their own profile. Includes standard profile information.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/wishlistItems/{wishlistItemId}",
+        "definition": {
+          "entityName": "WishlistItem",
+          "schema": {
+            "$ref": "#/backend/entities/WishlistItem"
+          },
+          "description": "Stores wishlist items for a specific user. Path-based ownership ensures only the user can manage their wishlist items.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "wishlistItemId",
+              "description": "The unique identifier of the wishlist item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/giftExchanges/{giftExchangeId}",
+        "definition": {
+          "entityName": "GiftExchange",
+          "schema": {
+            "$ref": "#/backend/entities/GiftExchange"
+          },
+          "description": "Stores information about gift exchange events. Consider adding a 'members' map here if direct listing of exchanges a user is a part of is needed.",
+          "params": [
+            {
+              "name": "giftExchangeId",
+              "description": "The unique identifier of the gift exchange event."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/giftExchanges/{giftExchangeId}/participants/{exchangeParticipantId}",
+        "definition": {
+          "entityName": "ExchangeParticipant",
+          "schema": {
+            "$ref": "#/backend/entities/ExchangeParticipant"
+          },
+          "description": "Represents a user's participation in a gift exchange. Includes denormalized 'giftExchangeId' for authorization independence. Access is restricted to exchange members.",
+          "params": [
+            {
+              "name": "giftExchangeId",
+              "description": "The unique identifier of the gift exchange event."
+            },
+            {
+              "name": "exchangeParticipantId",
+              "description": "The unique identifier of the exchange participant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/chatMessages/{chatMessageId}",
+        "definition": {
+          "entityName": "ChatMessage",
+          "schema": {
+            "$ref": "#/backend/entities/ChatMessage"
+          },
+          "description": "Stores all chat messages.  Security rules would check if a user is sender or recipient, or if the `giftExchangeId` is present, if the user is a participant.",
+          "params": [
+            {
+              "name": "chatMessageId",
+              "description": "The unique identifier of the chat message."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support the GiftMatch application's core features, including user authentication, profile management, wishlist creation, gift exchange participation, and chat functionalities. The structure emphasizes authorization independence and secure list operations. Path-based ownership is used for user-specific data (profile, wishlist items). Collaborative data (gift exchanges, exchange participants) leverages denormalized membership maps to avoid `get()` calls in security rules.\n\n**Authorization Independence:** Denormalization is applied to collaborative data. Specifically, the `ExchangeParticipant` documents include the `giftExchangeId`, facilitating direct access without needing to traverse up the hierarchy. This approach enhances security rule simplicity and allows for atomic operations during exchange creation and participation.\n\n**QAPs Support:**\n*   **Secure List Operations (Users):** The `/users/{userId}` collection enforces ownership, allowing listing only by authenticated users or admins (if a separate admin role collection were implemented).\n*   **Secure List Operations (WishlistItems):** The `/users/{userId}/wishlistItems/{wishlistItemId}` path ensures that only the owner (`userId`) can list their wishlist items.\n*   **Secure List Operations (GiftExchanges):** Listing gift exchanges requires checking membership in the exchange. The `ExchangeParticipant` subcollection and the potential inclusion of a `members` map within the GiftExchange (if needed for direct listing of exchanges the user is a part of) facilitates this, with the user id present in the ExchangeParticipant docs for that user. Chat message retrieval is also access controlled by giftExchangeId."
+  }
+}

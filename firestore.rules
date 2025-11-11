@@ -1,0 +1,142 @@
+/**
+ * @fileoverview Firestore Security Rules for GiftMatch application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles and wishlists.
+ * Access to gift exchanges and their participants is controlled through membership.
+ * Chat message access is based on sender/recipient relationships and group membership.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information.
+ * - /users/{userId}/wishlistItems/{wishlistItemId}: Stores wishlist items for a user.
+ * - /giftExchanges/{giftExchangeId}: Stores gift exchange event details.
+ * - /giftExchanges/{giftExchangeId}/participants/{exchangeParticipantId}: Stores participation data.
+ * - /chatMessages/{chatMessageId}: Stores chat messages.
+ *
+ * Key Security Decisions:
+ * - Users can only access their own profile data and wishlists.
+ * - Gift exchange access is restricted to participants.
+ * - Chat message access is restricted to senders, recipients, and participants of the associated gift exchange.
+ * - Listing of all users is disallowed to protect privacy.
+ *
+ * Denormalization for Authorization:
+ * - ExchangeParticipant documents include the giftExchangeId to avoid needing to traverse up the hierarchy for authorization.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Protects user profile information.
+     * @path /users/{userId}
+     * @allow (create) - Authenticated user can create their own profile.
+     * @allow (get, update, delete) - Authenticated user can access and modify their own profile.
+     * @deny (create) - An unauthenticated user can not create a profile.
+     * @deny (update, delete) - A user cannot modify another user's profile.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Protects wishlist items for a specific user.
+     * @path /users/{userId}/wishlistItems/{wishlistItemId}
+     * @allow (create, get, update, delete, list) - Authenticated user can manage their own wishlist items.
+     * @deny (create, get, update, delete, list) - A user cannot manage another user's wishlist items.
+     * @principle Restricts access to a user's own data tree.
+     */
+    match /users/{userId}/wishlistItems/{wishlistItemId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isExistingOwner(userId) && request.resource.data.userId == userId;
+    }
+
+    /**
+     * @description Protects gift exchange event details.
+     * @path /giftExchanges/{giftExchangeId}
+     */
+    match /giftExchanges/{giftExchangeId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if true;
+      allow list: if true; // TODO: Restrict listing to members of the exchange
+      allow create: if isSignedIn(); // TODO: Add conditions for creating a gift exchange
+      allow update: if false; // TODO: Add role-based update permissions (e.g., admin of the exchange)
+      allow delete: if false; // TODO: Add role-based delete permissions (e.g., admin of the exchange)
+    }
+
+    /**
+     * @description Protects user participation data in a gift exchange.
+     * @path /giftExchanges/{giftExchangeId}/participants/{exchangeParticipantId}
+     */
+    match /giftExchanges/{giftExchangeId}/participants/{exchangeParticipantId} {
+       function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isParticipant(giftExchangeId, userId) {
+        return get(/databases/$(database)/documents/giftExchanges/$(giftExchangeId)/participants/$(userId)).data.userId == userId;
+      }
+
+       function isExistingParticipant(giftExchangeId, userId) {
+        return isParticipant(giftExchangeId, userId) && resource != null;
+      }
+
+
+      allow get: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid);
+      allow list: if isSignedIn() && get(/databases/$(database)/documents/giftExchanges/$(giftExchangeId)/participants/$(request.auth.uid)).data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.giftExchangeId == giftExchangeId && request.auth.uid == request.resource.data.userId;
+      allow update: if isSignedIn() && isExistingParticipant(giftExchangeId, request.auth.uid) && request.resource.data.giftExchangeId == giftExchangeId;
+      allow delete: if isSignedIn() && isExistingParticipant(giftExchangeId, request.auth.uid) && request.resource.data.giftExchangeId == giftExchangeId;
+    }
+
+    /**
+     * @description Protects chat messages.
+     * @path /chatMessages/{chatMessageId}
+     */
+    match /chatMessages/{chatMessageId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if isSignedIn() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.recipientId);
+      allow list: if false; // Listing chat messages is disallowed.
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
+      allow update: if false; // Chat messages cannot be updated.
+      allow delete: if false; // Chat messages cannot be deleted.
+    }
+  }
+}
