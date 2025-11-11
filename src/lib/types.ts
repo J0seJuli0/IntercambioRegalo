@@ -1,3 +1,5 @@
+import { Timestamp } from 'firebase/firestore';
+
 export type User = {
   id: string;
   name: string;
@@ -27,4 +29,16 @@ export type Wishlist = {
 export type SecretSantaAssignment = {
   giverId: string;
   receiverId: string;
+};
+
+
+export type ChatMessage = {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderProfilePictureUrl?: string | null;
+  content: string;
+  timestamp: Timestamp;
+  recipientId?: string | null;
+  giftExchangeId?: string;
 };

@@ -169,6 +169,14 @@
           "type": "string",
           "description": "Reference to User. The user who sent the message."
         },
+        "senderName": {
+          "type": "string",
+          "description": "Denormalized name of the sender."
+        },
+        "senderProfilePictureUrl": {
+          "type": "string",
+          "description": "Denormalized profile picture URL of the sender."
+        },
         "recipientId": {
           "type": "string",
           "description": "Reference to User. The user who received the message.  If null, this is a group chat message."
@@ -190,6 +198,7 @@
       "required": [
         "id",
         "senderId",
+        "senderName",
         "content",
         "timestamp"
       ]

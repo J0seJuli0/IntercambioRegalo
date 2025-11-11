@@ -9,7 +9,7 @@ import {
   UserCircle,
   Users,
   PanelLeft,
-  Shield,
+  MessageSquare,
   UserPlus
 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -38,6 +38,7 @@ const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/wishlist", label: "Mi Lista de Deseos", icon: Gift },
   { href: "/participants", label: "Participantes", icon: Users },
+  { href: "/chat", label: "Chat Grupal", icon: MessageSquare },
   { href: "/profile", label: "Mi Perfil", icon: UserCircle },
 ];
 
