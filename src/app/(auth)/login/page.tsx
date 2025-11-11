@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import Logo from "@/components/Logo";
-import { useAuth, useUser, initiateEmailSignIn } from "@/firebase";
+import { useAuth, useUser } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -48,16 +49,28 @@ export default function LoginPage() {
     }
   }, [user, isUserLoading, router]);
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    // We don't await the sign-in, the useUser hook will redirect on success
-    initiateEmailSignIn(auth, values.email, values.password);
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      // The useEffect above will handle redirection on successful login.
+      // We can add a success toast here if we want.
+      toast({
+        title: "¡Bienvenido de vuelta!",
+      });
 
-    // We can't know for sure if it will succeed, so we don't show a toast here.
-    // The auth listener might show an error if it fails, but that's a global concern.
-    // For this specific app, we will just let the user see if they are redirected.
-    // A more robust solution might involve a global error listener for auth.
+    } catch (error: any) {
+      console.error("Login Error:", error.code, error.message);
+      let description = "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.";
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        description = "Las credenciales son incorrectas. Verifica tu correo y contraseña.";
+      }
+      toast({
+        variant: "destructive",
+        title: "Error al iniciar sesión",
+        description,
+      });
+    }
   }
-
 
   return (
     <Card className="mx-auto max-w-sm">
@@ -65,7 +78,7 @@ export default function LoginPage() {
         <Logo className="mb-4 justify-center" />
         <CardTitle className="text-2xl font-headline">Iniciar Sesión</CardTitle>
         <CardDescription>
-          Ingresa tu correo electrónico para acceder a tu cuenta
+          Ingresa tu correo para acceder a tu cuenta de Amigo Secreto AI
         </CardDescription>
       </CardHeader>
       <CardContent>

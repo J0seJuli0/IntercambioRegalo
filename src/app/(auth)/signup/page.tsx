@@ -1,11 +1,10 @@
 'use client';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc } from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
@@ -19,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import Logo from "@/components/Logo";
-import { useAuth, useFirestore, setDocumentNonBlocking, useUser, initiateEmailSignUp } from "@/firebase";
+import { useAuth, useFirestore, setDocumentNonBlocking, useUser } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
@@ -33,7 +32,6 @@ const formSchema = z.object({
 export default function SignupPage() {
   const auth = useAuth();
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -46,38 +44,44 @@ export default function SignupPage() {
     },
   });
 
-  useEffect(() => {
-    if (!isUserLoading && user) {
-      // User is created and logged in, now update profile and create doc
-      updateProfile(user, { displayName: form.getValues('fullName') }).then(() => {
-        const userRef = doc(firestore, "users", user.uid);
-        setDocumentNonBlocking(userRef, {
-          id: user.uid,
-          name: form.getValues('fullName'),
-          email: user.email,
-          profilePictureUrl: user.photoURL,
-        }, { merge: false });
-        
-        toast({
-          title: "¡Cuenta creada!",
-          description: "Tu cuenta ha sido creada exitosamente.",
-        });
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
 
-        router.push('/dashboard');
-      }).catch(err => {
-        console.error("Error updating profile/doc: ", err);
-        toast({
-          variant: "destructive",
-          title: "Error de post-registro",
-          description: "No se pudo guardar la información del perfil.",
-        });
-      })
+      // 1. Update Firebase Auth profile
+      await updateProfile(user, { displayName: values.fullName });
+
+      // 2. Create user document in Firestore
+      const userRef = doc(firestore, "users", user.uid);
+      // Using setDocumentNonBlocking here is fine, as the user is already created
+      setDocumentNonBlocking(userRef, {
+        id: user.uid,
+        name: values.fullName,
+        email: user.email,
+        profilePictureUrl: user.photoURL,
+      }, { merge: false });
+      
+      toast({
+        title: "¡Cuenta creada!",
+        description: "Tu cuenta ha sido creada exitosamente. Redirigiendo...",
+      });
+
+      // Redirect manually as the useUser hook might take a moment to update
+      router.push('/dashboard');
+
+    } catch (error: any) {
+      console.error("Signup Error:", error.code, error.message);
+      let description = "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.";
+      if (error.code === 'auth/email-already-in-use') {
+        description = "Este correo electrónico ya está en uso. Intenta iniciar sesión.";
+      }
+      toast({
+        variant: "destructive",
+        title: "Error al registrarse",
+        description,
+      });
     }
-  }, [user, isUserLoading, router, firestore, form, toast]);
-
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-     // We don't await the sign-up, the useEffect will handle the rest
-     initiateEmailSignUp(auth, values.email, values.password);
   }
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 import Link from "next/link";
-import { ArrowRight, Gift } from "lucide-react";
+import { ArrowRight, Gift, Users, Star } from "lucide-react";
 import { useUser, useFirestore, useCollection } from "@/firebase";
 import { collection } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
@@ -12,11 +12,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Gift as GiftType } from "@/lib/types";
+import { Progress } from "@/components/ui/progress";
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -25,6 +25,8 @@ export default function DashboardPage() {
   // TODO: Replace with real assignment data
   const assignment = null; 
   const receiver = null;
+  // TODO: Replace with real exchange data
+  const exchange = { name: "Intercambio Navideño 2024", budget: 50 };
 
   const wishlistQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -33,13 +35,23 @@ export default function DashboardPage() {
 
   const { data: userWishlist, isLoading: isWishlistLoading } = useCollection<GiftType>(wishlistQuery);
 
+  const purchasedItems = userWishlist?.filter(item => item.isPurchased).length || 0;
+  const totalItems = userWishlist?.length || 0;
+  const progress = totalItems > 0 ? (purchasedItems / totalItems) * 100 : 0;
+
+
   if (isUserLoading) {
     return (
-       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+       <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
         <Skeleton className="h-10 w-1/2" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <Skeleton className="h-48 lg:col-span-4" />
-          <Skeleton className="h-48 lg:col-span-3" />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-56" />
+          <Skeleton className="h-56" />
+          <Skeleton className="h-56" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-5">
+           <Skeleton className="h-64 lg:col-span-3" />
+           <Skeleton className="h-64 lg:col-span-2" />
         </div>
       </div>
     );
@@ -50,80 +62,118 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight font-headline">
           ¡Hola, {user.displayName || user.email}! 👋
         </h2>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="lg:col-span-4">
+      {/* Quick Stats */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tu Amigo Secreto</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+             {receiver ? (
+              <div className="text-2xl font-bold">{receiver.name}</div>
+             ) : (
+                <div className="text-xl font-bold">Por Asignar</div>
+             )}
+            <p className="text-xs text-muted-foreground">
+               {receiver ? '¡Es hora de ver su lista!' : 'Pronto sabrás a quién regalar'}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tu Lista de Deseos</CardTitle>
+            <Gift className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalItems} {totalItems === 1 ? 'Regalo' : 'Regalos'}</div>
+            <p className="text-xs text-muted-foreground">
+              Tienes {totalItems - purchasedItems} regalos pendientes.
+            </p>
+          </CardContent>
+        </Card>
+         <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Progreso de Compra</CardTitle>
+            <Star className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{purchasedItems} de {totalItems}</div>
+            <Progress value={progress} className="mt-2 h-2" />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle className="font-headline text-primary">Tu Amigo Secreto Es...</CardTitle>
+            <CardTitle className="font-headline text-primary">Tu Intercambio: {exchange.name}</CardTitle>
             <CardDescription>
-              Este año, te ha tocado regalarle a:
+              Presupuesto: ${exchange.budget}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex items-center gap-4">
             {receiver ? (
               <>
-                <Avatar className="h-16 w-16">
+                <Avatar className="h-16 w-16 border-2 border-primary">
                   <AvatarImage src={`https://picsum.photos/seed/${receiver.id}/100/100`} data-ai-hint="person face" />
                   <AvatarFallback>{receiver.name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="text-2xl font-bold">{receiver.name}</p>
                   <p className="text-muted-foreground">¡Hora de investigar su lista de deseos!</p>
+                   <Button asChild className="mt-2">
+                    <Link href={`/participants/${receiver.id}`}>
+                      Ver Lista <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
                 </div>
               </>
             ) : (
-              <div className="flex items-center justify-center text-center p-4 bg-secondary rounded-lg w-full">
-                <p className="text-muted-foreground">Tu amigo secreto aún no ha sido asignado. ¡Vuelve pronto!</p>
+              <div className="flex flex-col items-center justify-center text-center p-8 bg-secondary rounded-lg w-full">
+                <p className="text-lg font-semibold">Tu amigo secreto aún no ha sido asignado.</p>
+                <p className="text-muted-foreground mt-1">El sorteo está en proceso. ¡Vuelve pronto para la gran revelación!</p>
               </div>
             )}
           </CardContent>
-          {receiver && (
-            <CardFooter>
-              <Button asChild>
-                <Link href={`/participants/${receiver.id}`}>
-                  Ver Lista de Deseos <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </CardFooter>
-          )}
         </Card>
 
-        <Card className="lg:col-span-3">
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="font-headline">Tu Lista de Deseos</CardTitle>
-            <CardDescription>
-              Un vistazo rápido a los regalos que has pedido.
+             <CardDescription>
+              {totalItems > 0 ? `Tus ${totalItems} regalos más deseados.` : "Añade regalos a tu lista."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {isWishlistLoading ? (
-               <div className="space-y-2">
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-6 w-2/3" />
+               <div className="space-y-4">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-2/3" />
                 </div>
             ) : userWishlist && userWishlist.length > 0 ? (
-              <ul className="space-y-2">
+              <ul className="space-y-4">
                 {userWishlist.slice(0, 3).map((item) => (
                   <li key={item.id} className="flex items-center gap-3">
-                    <Gift className="h-5 w-5 text-primary" />
-                    <span>{item.name}</span>
-                    {item.isPurchased && <Badge variant="secondary">Comprado</Badge>}
+                    <Gift className="h-5 w-5 text-primary flex-shrink-0" />
+                    <span className="truncate">{item.name}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-               <p className="text-muted-foreground">Aún no has añadido nada a tu lista.</p>
+               <p className="text-muted-foreground text-center py-4">Aún no has añadido nada a tu lista.</p>
             )}
           </CardContent>
           <CardFooter>
-            <Button variant="outline" asChild>
+            <Button variant="outline" asChild className="w-full">
               <Link href="/wishlist">
                 Gestionar mi Lista
               </Link>
