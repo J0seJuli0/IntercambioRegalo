@@ -1,6 +1,6 @@
 'use client';
 import Link from "next/link";
-import { ArrowRight, Gift, Users, Star } from "lucide-react";
+import { ArrowRight, Gift, Users, Star, CalendarClock } from "lucide-react";
 import { useUser, useFirestore, useCollection } from "@/firebase";
 import { collection } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Gift as GiftType } from "@/lib/types";
 import { Progress } from "@/components/ui/progress";
+import CountdownTimer from "@/components/dashboard/CountdownTimer";
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -26,7 +27,7 @@ export default function DashboardPage() {
   const assignment = null; 
   const receiver = null;
   // TODO: Replace with real exchange data
-  const exchange = { name: "Intercambio Navideño 2024", budget: 50 };
+  const exchange = { name: "Intercambio Navideño 2025", budget: 50 };
 
   const wishlistQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -38,7 +39,18 @@ export default function DashboardPage() {
   const purchasedItems = userWishlist?.filter(item => item.isPurchased).length || 0;
   const totalItems = userWishlist?.length || 0;
   const progress = totalItems > 0 ? (purchasedItems / totalItems) * 100 : 0;
+  
+  const getNextDrawDate = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    let drawDate = new Date(currentYear, 11, 1); // December 1st
+    if (now > drawDate) {
+      drawDate = new Date(currentYear + 1, 11, 1);
+    }
+    return drawDate;
+  };
 
+  const drawDate = getNextDrawDate();
 
   if (isUserLoading) {
     return (
@@ -69,50 +81,61 @@ export default function DashboardPage() {
         </h2>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tu Amigo Secreto</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="flex flex-col justify-center items-center bg-gradient-to-br from-primary to-red-400 text-primary-foreground">
+          <CardHeader className="text-center pb-2">
+             <CardTitle className="text-2xl font-headline">Sorteo del Amigo Secreto</CardTitle>
+            <CardDescription className="text-primary-foreground/80">Tiempo restante para la asignación</CardDescription>
           </CardHeader>
-          <CardContent>
-             {receiver ? (
-              <div className="text-2xl font-bold">{receiver.name}</div>
-             ) : (
-                <div className="text-xl font-bold">Por Asignar</div>
-             )}
-            <p className="text-xs text-muted-foreground">
-               {receiver ? '¡Es hora de ver su lista!' : 'Pronto sabrás a quién regalar'}
-            </p>
+          <CardContent className="p-4 w-full flex justify-center">
+            <CountdownTimer targetDate={drawDate} />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Tu Lista de Deseos</CardTitle>
-            <Gift className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalItems} {totalItems === 1 ? 'Regalo' : 'Regalos'}</div>
-            <p className="text-xs text-muted-foreground">
-              Tienes {totalItems - purchasedItems} regalos pendientes.
-            </p>
-          </CardContent>
-        </Card>
-         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Progreso de Compra</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{purchasedItems} de {totalItems}</div>
-            <Progress value={progress} className="mt-2 h-2" />
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 md:grid-cols-2">
+           <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Tu Amigo Secreto</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                 {receiver ? (
+                  <div className="text-2xl font-bold">{receiver.name}</div>
+                 ) : (
+                    <div className="text-xl font-bold">Por Asignar</div>
+                 )}
+                <p className="text-xs text-muted-foreground">
+                   {receiver ? '¡Es hora de ver su lista!' : 'Pronto sabrás a quién regalar'}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Tu Lista de Deseos</CardTitle>
+                <Gift className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalItems} {totalItems === 1 ? 'Regalo' : 'Regalos'}</div>
+                <p className="text-xs text-muted-foreground">
+                  Tienes {totalItems - purchasedItems} regalos pendientes.
+                </p>
+              </CardContent>
+            </Card>
+             <Card className="col-span-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Progreso de Compra (para tu amigo)</CardTitle>
+                <Star className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {/* TODO: Update with real progress */}
+                <div className="text-2xl font-bold">0 de 0</div>
+                <Progress value={0} className="mt-2 h-2" />
+              </CardContent>
+            </Card>
+        </div>
       </div>
-
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
+      
+      <div className="grid gap-6 md:grid-cols-5">
+        <Card className="md:col-span-3">
           <CardHeader>
             <CardTitle className="font-headline text-primary">Tu Intercambio: {exchange.name}</CardTitle>
             <CardDescription>
@@ -138,6 +161,7 @@ export default function DashboardPage() {
               </>
             ) : (
               <div className="flex flex-col items-center justify-center text-center p-8 bg-secondary rounded-lg w-full">
+                 <CalendarClock className="h-10 w-10 text-muted-foreground mb-3"/>
                 <p className="text-lg font-semibold">Tu amigo secreto aún no ha sido asignado.</p>
                 <p className="text-muted-foreground mt-1">El sorteo está en proceso. ¡Vuelve pronto para la gran revelación!</p>
               </div>
@@ -145,9 +169,9 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="font-headline">Tu Lista de Deseos</CardTitle>
+            <CardTitle className="font-headline">Mi Lista de Deseos</CardTitle>
              <CardDescription>
               {totalItems > 0 ? `Tus ${totalItems} regalos más deseados.` : "Añade regalos a tu lista."}
             </CardDescription>
