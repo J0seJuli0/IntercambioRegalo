@@ -82,25 +82,15 @@ export default function RegisterUserPage() {
 
   return (
     <div className="w-full min-h-[calc(100vh-5rem)] lg:grid lg:grid-cols-2">
-      <div className="hidden lg:flex flex-col items-center justify-center bg-muted p-8">
-         <Card className="w-full max-w-md bg-gradient-to-br from-primary/10 to-background shadow-2xl">
-            <CardContent className="p-0">
-               <Image
-                  src="https://picsum.photos/seed/admin-welcome/600/800"
-                  alt="Imagen de bienvenida"
-                  data-ai-hint="office team"
-                  width={600}
-                  height={800}
-                  className="object-cover w-full h-full aspect-[3/4] rounded-t-lg"
-                />
-                <div className="p-6 rounded-b-lg">
-                    <CardTitle className="text-3xl font-headline text-primary">Gestiona tu Equipo</CardTitle>
-                    <CardDescription className="mt-2 text-lg">
-                        Crea, asigna y gestiona los roles de todos los participantes del amigo secreto de forma sencilla y centralizada.
-                    </CardDescription>
-                </div>
-            </CardContent>
-         </Card>
+      <div className="hidden bg-muted lg:flex items-center justify-center p-8">
+        <Image
+          src="https://picsum.photos/seed/admin-welcome/600/800"
+          alt="Imagen de bienvenida"
+          data-ai-hint="office team"
+          width={600}
+          height={800}
+          className="rounded-lg object-cover aspect-[3/4]"
+        />
       </div>
       <div className="flex items-center justify-center py-12 px-4">
         <div className="mx-auto grid w-full max-w-[400px] gap-6">
