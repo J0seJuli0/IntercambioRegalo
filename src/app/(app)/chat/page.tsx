@@ -47,10 +47,10 @@ function ChatMessageItem({ message, isCurrentUser }: { message: ChatMessage, isC
           <AvatarFallback>{message.senderName?.charAt(0) || '?'}</AvatarFallback>
         </Avatar>
       )}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 max-w-xs md:max-w-md lg:max-w-lg">
         <div
           className={cn(
-            'max-w-xs md:max-w-md rounded-lg px-3 py-2',
+            'rounded-lg px-3 py-2 break-words',
             bubbleColor,
              isCurrentUser ? 'rounded-br-none' : 'rounded-bl-none'
           )}
@@ -158,33 +158,35 @@ export default function ChatPage() {
         </div>
       </div>
       <div className="p-4 border-t bg-background">
-         <TypingIndicator />
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-center gap-2">
-            <FormField
-              control={form.control}
-              name="content"
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormControl>
-                    <Input 
-                      placeholder="Escribe un mensaje..." 
-                      autoComplete="off" 
-                      {...field} 
-                      onChange={(e) => {
-                        field.onChange(e);
-                        updateTypingStatus();
-                      }}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-            <Button type="submit" size="icon" disabled={form.formState.isSubmitting}>
-              <SendHorizonal className="h-5 w-5" />
-            </Button>
-          </form>
-        </Form>
+        <div className="max-w-3xl mx-auto">
+          <TypingIndicator />
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-center gap-2">
+              <FormField
+                control={form.control}
+                name="content"
+                render={({ field }) => (
+                  <FormItem className="flex-1">
+                    <FormControl>
+                      <Input 
+                        placeholder="Escribe un mensaje..." 
+                        autoComplete="off" 
+                        {...field} 
+                        onChange={(e) => {
+                          field.onChange(e);
+                          updateTypingStatus();
+                        }}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" size="icon" disabled={form.formState.isSubmitting}>
+                <SendHorizonal className="h-5 w-5" />
+              </Button>
+            </form>
+          </Form>
+        </div>
       </div>
     </div>
   );

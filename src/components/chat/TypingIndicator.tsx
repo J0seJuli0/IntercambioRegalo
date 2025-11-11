@@ -34,6 +34,7 @@ export default function TypingIndicator() {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   
   useEffect(() => {
+    if (!firestore) return;
     const q = query(collection(firestore, 'typingStatus'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -66,7 +67,7 @@ export default function TypingIndicator() {
     : `${typingUsers.slice(0, 2).join(' y ')} están escribiendo...`;
 
   return (
-    <div className="h-5 text-sm text-muted-foreground italic px-6 pb-1 animate-pulse">
+    <div className="h-5 text-sm text-muted-foreground italic px-2 md:px-0 pb-1 animate-pulse">
       {message}
     </div>
   );
