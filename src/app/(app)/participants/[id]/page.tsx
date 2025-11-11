@@ -1,20 +1,15 @@
 'use client';
 import { WishlistClientPage } from "@/components/wishlist/WishlistClientPage";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 import { useDoc, useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
 import { User } from "@/lib/types";
 import Loading from "../../loading";
 
-type ParticipantPageProps = {
-  params: {
-    id: string;
-  };
-};
-
-export default function ParticipantWishlistPage({ params }: ParticipantPageProps) {
-  const { id } = params;
+export default function ParticipantWishlistPage() {
+  const params = useParams();
+  const id = params.id as string;
   const firestore = useFirestore();
   
   const userDocRef = useMemoFirebase(() => {
