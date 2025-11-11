@@ -17,7 +17,7 @@
  * - Users can only access their own profile data and wishlists.
  * - Gift exchange access is restricted to participants.
  * - Chat message access is restricted to senders, recipients, and participants of the associated gift exchange.
- * - Listing of all users is disallowed to protect privacy.
+ * - Listing of all users is allowed for participants page.
  *
  * Denormalization for Authorization:
  * - ExchangeParticipant documents include the giftExchangeId to avoid needing to traverse up the hierarchy for authorization.
@@ -49,7 +49,7 @@ service cloud.firestore {
       }
 
       allow get: if isOwner(userId);
-      allow list: if false;
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
@@ -75,11 +75,12 @@ service cloud.firestore {
         return isOwner(userId) && resource != null;
       }
 
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
+      // Any authenticated user can view a wishlist. Only owner can modify.
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isOwner(userId) && request.resource.data.userId == userId;
     }
 
     /**
@@ -108,19 +109,14 @@ service cloud.firestore {
       }
 
       function isParticipant(giftExchangeId, userId) {
-        return get(/databases/$(database)/documents/giftExchanges/$(giftExchangeId)/participants/$(userId)).data.userId == userId;
+        return exists(/databases/$(database)/documents/giftExchanges/$(giftExchangeId)/participants/$(userId));
       }
-
-       function isExistingParticipant(giftExchangeId, userId) {
-        return isParticipant(giftExchangeId, userId) && resource != null;
-      }
-
 
       allow get: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid);
-      allow list: if isSignedIn() && get(/databases/$(database)/documents/giftExchanges/$(giftExchangeId)/participants/$(request.auth.uid)).data.userId == request.auth.uid;
+      allow list: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.giftExchangeId == giftExchangeId && request.auth.uid == request.resource.data.userId;
-      allow update: if isSignedIn() && isExistingParticipant(giftExchangeId, request.auth.uid) && request.resource.data.giftExchangeId == giftExchangeId;
-      allow delete: if isSignedIn() && isExistingParticipant(giftExchangeId, request.auth.uid) && request.resource.data.giftExchangeId == giftExchangeId;
+      allow update: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid) && request.resource.data.giftExchangeId == giftExchangeId;
+      allow delete: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid) && request.resource.data.giftExchangeId == giftExchangeId;
     }
 
     /**
