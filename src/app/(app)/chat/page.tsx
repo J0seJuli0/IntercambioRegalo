@@ -21,6 +21,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
+import TypingIndicator, { useTypingStatus } from '@/components/chat/TypingIndicator';
+import { useDebouncedCallback } from 'use-debounce';
 
 // Schema for the chat message form
 const chatFormSchema = z.object({
@@ -33,7 +35,7 @@ function ChatMessageItem({ message, isCurrentUser }: { message: ChatMessage, isC
   const alignment = isCurrentUser ? 'justify-end' : 'justify-start';
   const bubbleColor = isCurrentUser
     ? 'bg-primary text-primary-foreground'
-    : 'bg-muted text-muted-foreground';
+    : 'bg-muted';
   
   const timestamp = message.timestamp?.toDate ? formatDistanceToNow(message.timestamp.toDate(), { addSuffix: true, locale: es }) : 'justo ahora';
 
@@ -42,10 +44,10 @@ function ChatMessageItem({ message, isCurrentUser }: { message: ChatMessage, isC
       {!isCurrentUser && (
         <Avatar className="h-8 w-8">
           <AvatarImage src={message.senderProfilePictureUrl || `https://avatar.vercel.sh/${message.senderId}.png`} />
-          <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
+          <AvatarFallback>{message.senderName?.charAt(0) || '?'}</AvatarFallback>
         </Avatar>
       )}
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-1">
         <div
           className={cn(
             'max-w-xs md:max-w-md rounded-lg px-3 py-2',
@@ -53,15 +55,15 @@ function ChatMessageItem({ message, isCurrentUser }: { message: ChatMessage, isC
              isCurrentUser ? 'rounded-br-none' : 'rounded-bl-none'
           )}
         >
-          {!isCurrentUser && <p className="text-xs font-bold mb-1">{message.senderName}</p>}
+          {!isCurrentUser && <p className="text-xs font-bold mb-1 text-primary">{message.senderName}</p>}
           <p className="text-sm">{message.content}</p>
         </div>
-        <p className={cn('text-xs text-muted-foreground mt-1', isCurrentUser ? 'text-right' : 'text-left')}>{timestamp}</p>
+        <p className={cn('text-xs text-muted-foreground', isCurrentUser ? 'text-right' : 'text-left')}>{timestamp}</p>
       </div>
        {isCurrentUser && (
         <Avatar className="h-8 w-8">
           <AvatarImage src={message.senderProfilePictureUrl || `https://avatar.vercel.sh/${message.senderId}.png`} />
-          <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
+          <AvatarFallback>{message.senderName?.charAt(0) || '?'}</AvatarFallback>
         </Avatar>
       )}
     </div>
@@ -73,7 +75,8 @@ export default function ChatPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+  const { updateTypingStatus } = useTypingStatus();
+
   const form = useForm<z.infer<typeof chatFormSchema>>({
     resolver: zodResolver(chatFormSchema),
     defaultValues: { content: '' },
@@ -110,20 +113,30 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)]">
-       <header className="p-4 border-b">
+       <header className="p-4 border-b bg-background sticky top-0 z-10">
          <h2 className="text-xl font-bold tracking-tight font-headline flex items-center gap-2">
             <MessageSquare className="text-primary"/>
             Chat Grupal
         </h2>
+        <p className="text-sm text-muted-foreground">Comunícate con todos los participantes del intercambio.</p>
        </header>
        <div className="flex-1 overflow-y-auto p-4 md:p-6">
         <div className="space-y-6">
            {isLoading && (
-            <>
-              <Skeleton className="h-16 w-3/4" />
-              <Skeleton className="h-20 w-1/2 self-end" />
-              <Skeleton className="h-12 w-2/3" />
-            </>
+            <div className="space-y-6">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-16 w-3/4" />
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                 <Skeleton className="h-20 w-1/2" />
+                 <Skeleton className="h-8 w-8 rounded-full" />
+              </div>
+               <div className="flex items-center gap-2">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-12 w-2/3" />
+              </div>
+            </div>
            )}
           {!isLoading && messages && messages.length > 0 ? (
             messages.map(msg => (
@@ -134,12 +147,18 @@ export default function ChatPage() {
               />
             ))
           ) : (
-             !isLoading && <p className="text-center text-muted-foreground">Aún no hay mensajes. ¡Sé el primero en saludar!</p>
+             !isLoading && (
+                <div className="text-center py-16 text-muted-foreground">
+                    <MessageSquare className="mx-auto h-10 w-10 mb-4"/>
+                    <p>Aún no hay mensajes. ¡Sé el primero en saludar!</p>
+                </div>
+             )
           )}
            <div ref={messagesEndRef} />
         </div>
       </div>
       <div className="p-4 border-t bg-background">
+         <TypingIndicator />
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-center gap-2">
             <FormField
@@ -148,7 +167,15 @@ export default function ChatPage() {
               render={({ field }) => (
                 <FormItem className="flex-1">
                   <FormControl>
-                    <Input placeholder="Escribe un mensaje..." autoComplete="off" {...field} />
+                    <Input 
+                      placeholder="Escribe un mensaje..." 
+                      autoComplete="off" 
+                      {...field} 
+                      onChange={(e) => {
+                        field.onChange(e);
+                        updateTypingStatus();
+                      }}
+                    />
                   </FormControl>
                 </FormItem>
               )}

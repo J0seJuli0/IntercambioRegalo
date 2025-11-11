@@ -12,6 +12,7 @@
  * - /giftExchanges/{giftExchangeId}: Stores gift exchange event details.
  * - /giftExchanges/{giftExchangeId}/participants/{exchangeParticipantId}: Stores participation data.
  * - /chatMessages/{chatMessageId}: Stores chat messages.
+ * - /typingStatus/{userId}: Stores temporary typing status of users.
  *
  * Key Security Decisions:
  * - Users can only access their own profile data and wishlists.
@@ -111,26 +112,20 @@ service cloud.firestore {
      * @path /chatMessages/{chatMessageId}
      */
     match /chatMessages/{chatMessageId} {
-      // For 1:1 chats
-      function isSenderOrRecipient() {
-        return request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.recipientId;
-      }
-      
-      // For group chats (no recipientId)
-      function isGroupChatMessage() {
-        return resource.data.recipientId == null;
-      }
-      
-      // For creating group chats
-      function isCreatingGroupMessage() {
-         return request.resource.data.recipientId == null;
-      }
-
-      allow get: if isSignedIn() && (isSenderOrRecipient() || isGroupChatMessage());
-      allow list: if isSignedIn(); // Allow signed-in users to list messages for chat history
+      allow list, get: if isSignedIn();
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
-      allow update: if false; // Chat messages cannot be updated.
-      allow delete: if false; // Chat messages cannot be deleted.
+      allow update, delete: if false; // Chat messages are immutable.
+    }
+    
+    /**
+     * @description Protects the real-time typing indicator status.
+     * @path /typingStatus/{userId}
+     */
+    match /typingStatus/{userId} {
+        // Anyone can see who is typing.
+        allow list, get: if isSignedIn();
+        // A user can only set their own typing status.
+        allow create, update, delete: if isOwner(userId);
     }
   }
 }
