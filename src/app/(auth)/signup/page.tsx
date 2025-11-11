@@ -44,43 +44,42 @@ export default function SignupPage() {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    try {
-      // 1. Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    createUserWithEmailAndPassword(auth, values.email, values.password)
+      .then(async (userCredential) => {
+        const user = userCredential.user;
+        
+        // Update profile and create user doc
+        await updateProfile(user, { displayName: values.fullName });
+        const userRef = doc(firestore, "users", user.uid);
+        setDocumentNonBlocking(userRef, {
+          id: user.uid,
+          name: values.fullName,
+          email: values.email,
+          profilePictureUrl: user.photoURL,
+        }, { merge: false });
 
-      // 2. Update user profile in Firebase Auth
-      await updateProfile(user, {
-        displayName: values.fullName,
+        toast({
+          title: "¡Cuenta creada!",
+          description: "Tu cuenta ha sido creada exitosamente.",
+        });
+        router.push('/dashboard');
+      })
+      .catch((error) => {
+        console.error(error);
+        let description = "Ocurrió un error. Por favor, inténtalo de nuevo.";
+        if (error.code === 'auth/email-already-in-use') {
+          description = "Este correo electrónico ya está en uso. Por favor, inicia sesión o usa otro correo.";
+        }
+        toast({
+          variant: "destructive",
+          title: "Error al crear la cuenta",
+          description,
+        });
+        form.control.register('email', { disabled: false });
+        form.control.register('password', { disabled: false });
+        form.control.register('fullName', { disabled: false });
       });
-
-      // 3. Create user document in Firestore
-      const userRef = doc(firestore, "users", user.uid);
-      setDocumentNonBlocking(userRef, {
-        id: user.uid,
-        name: values.fullName,
-        email: values.email,
-        profilePictureUrl: user.photoURL,
-      }, { merge: false });
-
-      toast({
-        title: "¡Cuenta creada!",
-        description: "Tu cuenta ha sido creada exitosamente.",
-      });
-      router.push('/dashboard');
-    } catch (error: any) {
-      console.error(error);
-       let description = "Ocurrió un error. Por favor, inténtalo de nuevo.";
-      if (error.code === 'auth/email-already-in-use') {
-        description = "Este correo electrónico ya está en uso. Por favor, inicia sesión o usa otro correo.";
-      }
-      toast({
-        variant: "destructive",
-        title: "Error al crear la cuenta",
-        description,
-      });
-    }
   }
 
   return (

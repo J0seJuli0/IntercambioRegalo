@@ -41,22 +41,25 @@ export default function LoginPage() {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
-      toast({
-        title: "¡Bienvenido de vuelta!",
-        description: "Has iniciado sesión correctamente.",
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    signInWithEmailAndPassword(auth, values.email, values.password)
+      .then(() => {
+        toast({
+          title: "¡Bienvenido de vuelta!",
+          description: "Has iniciado sesión correctamente.",
+        });
+        router.push('/dashboard');
+      })
+      .catch((error: any) => {
+        console.error(error);
+        toast({
+          variant: "destructive",
+          title: "Error al iniciar sesión",
+          description: "Las credenciales son incorrectas. Por favor, inténtalo de nuevo.",
+        });
+        form.control.register('email', { disabled: false });
+        form.control.register('password', { disabled: false });
       });
-      router.push('/dashboard');
-    } catch (error: any) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Error al iniciar sesión",
-        description: "Las credenciales son incorrectas. Por favor, inténtalo de nuevo.",
-      });
-    }
   }
 
 
