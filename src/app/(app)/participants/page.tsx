@@ -46,7 +46,7 @@ export default function ParticipantsPage() {
                 <Skeleton className="h-3 w-40" />
               </div>
             </CardHeader>
-          </Card>>
+          </Card>
         ))}
         {filteredUsers && filteredUsers.map((user) => (
           <Link href={`/participants/${user.id}`} key={user.id}>
