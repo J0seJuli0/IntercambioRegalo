@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { updateProfile } from "firebase/auth";
-import { doc, getFirestore } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, User as UserIcon, Image as ImageIcon, Link as LinkIcon, RefreshCcw } from "lucide-react";
@@ -67,17 +67,15 @@ export default function ProfilePage() {
      try {
        const userRef = doc(firestore, "users", user.uid);
        const updateData: { name: string; profilePictureUrl?: string } = { name };
-
-       // Update Auth Profile
+        if (photoURL) {
+         updateData.profilePictureUrl = photoURL;
+       }
+       
        await updateProfile(auth.currentUser, { 
          displayName: name,
          ...(photoURL && { photoURL }),
        });
 
-       // Update Firestore Document
-       if (photoURL) {
-         updateData.profilePictureUrl = photoURL;
-       }
        setDocumentNonBlocking(userRef, updateData, { merge: true });
 
      } catch (error: any) {
@@ -88,7 +86,7 @@ export default function ProfilePage() {
 
   const handleUrlSubmit = async () => {
     const url = form.getValues("profilePictureUrl");
-    if (url) {
+    if (url && z.string().url().safeParse(url).success) {
       setIsUploading(true);
       try {
         await handleProfileUpdate(form.getValues("name"), url);
@@ -102,12 +100,14 @@ export default function ProfilePage() {
       } finally {
         setIsUploading(false);
       }
+    } else {
+        form.setError("profilePictureUrl", { type: "manual", message: "Por favor, introduce una URL válida." });
     }
   };
 
   const handleAvatarGenerate = async () => {
      if (!user) return;
-     const url = `https://avatar.vercel.sh/${user.uid}.png?username=${encodeURIComponent(user.displayName || user.email || 'user')}`;
+     const url = `https://avatar.vercel.sh/${user.uid}.png?username=${encodeURIComponent(user.displayName || user.email || 'user')}&time=${Date.now()}`;
      setIsUploading(true);
       try {
         await handleProfileUpdate(form.getValues("name"), url);
@@ -135,7 +135,7 @@ export default function ProfilePage() {
       const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
-      await handleProfileUpdate(form.getValues("name"), downloadURL);
+      await handleProfile_update(downloadURL);
       setAvatarPreview(downloadURL);
       form.setValue("profilePictureUrl", downloadURL);
 
@@ -161,6 +161,7 @@ export default function ProfilePage() {
     if (form.formState.isSubmitting) return;
 
     try {
+      // We only update the name here, as photoURL is handled by its own buttons
       await handleProfileUpdate(values.name);
       toast({
         title: "Perfil actualizado",
@@ -174,6 +175,28 @@ export default function ProfilePage() {
       });
     }
   };
+
+  const handleProfile_update = async (photoURL: string) => {
+    if (!user || !auth.currentUser) return;
+     const name = form.getValues("name");
+    try {
+      const userRef = doc(firestore, "users", user.uid);
+      const updateData = { name, profilePictureUrl: photoURL };
+
+      // Update Auth Profile
+      await updateProfile(auth.currentUser, {
+        displayName: name,
+        photoURL: photoURL,
+      });
+
+      // Update Firestore Document
+      setDocumentNonBlocking(userRef, updateData, { merge: true });
+
+    } catch (error: any) {
+      console.error("Error updating profile data: ", error);
+      throw new Error("No se pudo actualizar la información del perfil.");
+    }
+  };
   
   if (isUserLoading) {
     return <Loading />;
@@ -184,9 +207,9 @@ export default function ProfilePage() {
       <h2 className="text-3xl font-bold tracking-tight font-headline">
         Mi Perfil
       </h2>
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2">
-          <Form {...form}>
+      <Form {...form}>
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="md:col-span-2">
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <CardHeader>
                 <CardTitle>Información Personal</CardTitle>
@@ -231,63 +254,63 @@ export default function ProfilePage() {
                 </Button>
               </CardFooter>
             </form>
-          </Form>
-        </Card>
-         <Card>
-          <CardHeader>
-            <CardTitle>Foto de Perfil</CardTitle>
-            <CardDescription>Elige cómo te verán los demás.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-4">
-            <div className="relative">
-              {isUploading && (
-                <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-full">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              )}
-               <Avatar className="h-32 w-32 border-4 border-primary/20">
-                {avatarPreview ? (
-                  <AvatarImage src={avatarPreview} alt="Foto de perfil" data-ai-hint="person face" />
-                ) : null }
-                <AvatarFallback className="text-4xl">
-                  <UserIcon />
-                </AvatarFallback>
-              </Avatar>
-            </div>
+          </Card>
+           <Card>
+            <CardHeader>
+              <CardTitle>Foto de Perfil</CardTitle>
+              <CardDescription>Elige cómo te verán los demás.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-4">
+              <div className="relative">
+                {isUploading && (
+                  <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                )}
+                 <Avatar className="h-32 w-32 border-4 border-primary/20">
+                  {avatarPreview ? (
+                    <AvatarImage src={avatarPreview} alt="Foto de perfil" data-ai-hint="person face" />
+                  ) : null }
+                  <AvatarFallback className="text-4xl">
+                    <UserIcon />
+                  </AvatarFallback>
+                </Avatar>
+              </div>
 
-            <Tabs defaultValue="upload" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="upload"><ImageIcon/></TabsTrigger>
-                <TabsTrigger value="url"><LinkIcon/></TabsTrigger>
-                <TabsTrigger value="avatar"><RefreshCcw/></TabsTrigger>
-              </TabsList>
-              <TabsContent value="upload" className="flex flex-col items-center gap-2 mt-4">
-                <Label htmlFor="picture" className="text-center text-sm text-muted-foreground">Sube una imagen desde tu dispositivo.</Label>
-                <Input id="picture" type="file" accept="image/*" onChange={handleFileUpload} className="text-xs" disabled={isUploading} />
-              </TabsContent>
-              <TabsContent value="url" className="space-y-2 mt-4">
-                 <FormField
-                    control={form.control}
-                    name="profilePictureUrl"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input placeholder="https://ejemplo.com/imagen.png" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                <Button onClick={handleUrlSubmit} className="w-full" disabled={isUploading}>Usar URL</Button>
-              </TabsContent>
-              <TabsContent value="avatar" className="flex flex-col items-center gap-2 mt-4">
-                 <p className="text-center text-sm text-muted-foreground">Genera un avatar único basado en tu nombre.</p>
-                 <Button onClick={handleAvatarGenerate} className="w-full" variant="secondary" disabled={isUploading}>Generar Avatar</Button>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      </div>
+              <Tabs defaultValue="upload" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="upload"><ImageIcon/></TabsTrigger>
+                  <TabsTrigger value="url"><LinkIcon/></TabsTrigger>
+                  <TabsTrigger value="avatar"><RefreshCcw/></TabsTrigger>
+                </TabsList>
+                <TabsContent value="upload" className="flex flex-col items-center gap-2 mt-4">
+                  <Label htmlFor="picture" className="text-center text-sm text-muted-foreground">Sube una imagen desde tu dispositivo.</Label>
+                  <Input id="picture" type="file" accept="image/*" onChange={handleFileUpload} className="text-xs" disabled={isUploading} />
+                </TabsContent>
+                <TabsContent value="url" className="space-y-2 mt-4">
+                  <FormField
+                      control={form.control}
+                      name="profilePictureUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Input placeholder="https://ejemplo.com/imagen.png" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  <Button onClick={handleUrlSubmit} className="w-full" disabled={isUploading}>Usar URL</Button>
+                </TabsContent>
+                <TabsContent value="avatar" className="flex flex-col items-center gap-2 mt-4">
+                   <p className="text-center text-sm text-muted-foreground">Genera un avatar único basado en tu nombre.</p>
+                   <Button onClick={handleAvatarGenerate} className="w-full" variant="secondary" disabled={isUploading}>Generar Avatar</Button>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
+      </Form>
     </div>
   );
 }
