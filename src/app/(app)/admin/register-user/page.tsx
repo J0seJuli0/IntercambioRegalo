@@ -6,6 +6,7 @@ import {
   createUserWithEmailAndPassword,
 } from "firebase/auth";
 import { doc } from "firebase/firestore";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useFirestore, setDocumentNonBlocking, useAuth } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, User, Mail, KeyRound } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const formSchema = z.object({
@@ -80,30 +81,50 @@ export default function RegisterUserPage() {
   }
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-       <h2 className="text-3xl font-bold tracking-tight font-headline">
-          Registrar Nuevo Usuario
-        </h2>
-        <Card className="mx-auto max-w-2xl">
-        <CardHeader>
-            <CardTitle className="text-2xl font-headline">Crear Cuenta</CardTitle>
-            <CardDescription>
-            Crea una nueva cuenta de usuario para la aplicación.
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Form {...form}>
+    <div className="w-full min-h-[calc(100vh-5rem)] lg:grid lg:grid-cols-2">
+      <div className="hidden lg:flex flex-col items-center justify-center bg-muted p-8">
+         <Card className="w-full max-w-md bg-gradient-to-br from-primary/10 to-background shadow-2xl">
+            <CardContent className="p-0">
+               <Image
+                  src="https://picsum.photos/seed/admin-welcome/600/800"
+                  alt="Imagen de bienvenida"
+                  data-ai-hint="office team"
+                  width={600}
+                  height={800}
+                  className="object-cover w-full h-full aspect-[3/4] rounded-t-lg"
+                />
+                <div className="p-6 rounded-b-lg">
+                    <CardTitle className="text-3xl font-headline text-primary">Gestiona tu Equipo</CardTitle>
+                    <CardDescription className="mt-2 text-lg">
+                        Crea, asigna y gestiona los roles de todos los participantes del amigo secreto de forma sencilla y centralizada.
+                    </CardDescription>
+                </div>
+            </CardContent>
+         </Card>
+      </div>
+      <div className="flex items-center justify-center py-12 px-4">
+        <div className="mx-auto grid w-full max-w-[400px] gap-6">
+          <div className="grid gap-2 text-center">
+            <h1 className="text-3xl font-bold font-headline">Registrar Nuevo Usuario</h1>
+            <p className="text-balance text-muted-foreground">
+              Completa el formulario para añadir un nuevo miembro a la plataforma.
+            </p>
+          </div>
+           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
                 <FormField
                 control={form.control}
                 name="fullName"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Nombre Completo</FormLabel>
-                    <FormControl>
-                        <Input placeholder="Nombre del usuario" {...field} />
-                    </FormControl>
-                    <FormMessage />
+                      <FormLabel>Nombre Completo</FormLabel>
+                       <div className="relative">
+                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                         <FormControl>
+                            <Input placeholder="Nombre del usuario" {...field} className="pl-9" />
+                          </FormControl>
+                       </div>
+                      <FormMessage />
                     </FormItem>
                 )}
                 />
@@ -112,11 +133,14 @@ export default function RegisterUserPage() {
                 name="email"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Correo Electrónico</FormLabel>
-                    <FormControl>
-                        <Input placeholder="usuario@ejemplo.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
+                      <FormLabel>Correo Electrónico</FormLabel>
+                       <div className="relative">
+                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                         <FormControl>
+                            <Input placeholder="usuario@ejemplo.com" {...field} className="pl-9" />
+                          </FormControl>
+                       </div>
+                      <FormMessage />
                     </FormItem>
                 )}
                 />
@@ -125,11 +149,14 @@ export default function RegisterUserPage() {
                 name="password"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Contraseña Temporal</FormLabel>
-                    <FormControl>
-                        <Input type="password" {...field} />
-                    </FormControl>
-                    <FormMessage />
+                      <FormLabel>Contraseña Temporal</FormLabel>
+                      <div className="relative">
+                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <FormControl>
+                            <Input type="password" {...field} className="pl-9" />
+                        </FormControl>
+                      </div>
+                      <FormMessage />
                     </FormItem>
                 )}
                 />
@@ -160,8 +187,8 @@ export default function RegisterUserPage() {
                 </Button>
             </form>
             </Form>
-        </CardContent>
-        </Card>
+        </div>
+      </div>
     </div>
   )
 }
