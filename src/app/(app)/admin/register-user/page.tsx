@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { firebaseConfig } from "@/firebase/config";
 import { initializeApp, getApps } from "firebase/app";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Create a secondary Firebase app instance to manage user creation
 // This avoids conflicts with the main app's authentication state.
@@ -36,6 +37,7 @@ const formSchema = z.object({
   fullName: z.string().min(1, { message: "El nombre completo es requerido." }),
   email: z.string().email({ message: "Por favor ingresa un correo válido." }),
   password: z.string().min(6, { message: "La contraseña debe tener al menos 6 caracteres." }),
+  tipo_user: z.coerce.number().min(1).max(2, "Tipo de usuario inválido"),
 });
 
 export default function RegisterUserPage() {
@@ -48,6 +50,7 @@ export default function RegisterUserPage() {
       fullName: "",
       email: "",
       password: "",
+      tipo_user: 1,
     },
   });
 
@@ -63,7 +66,7 @@ export default function RegisterUserPage() {
         name: values.fullName,
         email: user.email,
         profilePictureUrl: null,
-        tipo_user: 1, // Assign 'user' role (1) by default
+        tipo_user: values.tipo_user,
       }, { merge: false });
       
       toast({
@@ -141,6 +144,27 @@ export default function RegisterUserPage() {
                     <FormMessage />
                     </FormItem>
                 )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tipo_user"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Usuario</FormLabel>
+                      <Select onValueChange={(value) => field.onChange(Number(value))} defaultValue={String(field.value)}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un rol" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="1">Usuario</SelectItem>
+                          <SelectItem value="2">Administrador</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
                 <Button type="submit" className="w-full mt-4" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
