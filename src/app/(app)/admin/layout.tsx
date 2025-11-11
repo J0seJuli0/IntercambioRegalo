@@ -3,7 +3,7 @@ import { useDoc, useFirestore, useUser } from "@/firebase";
 import { useMemoFirebase } from "@/firebase/provider";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Loading from "../loading";
 import type { User } from "@/lib/types";
 
@@ -20,29 +20,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userDocRef);
 
     useEffect(() => {
-        const isDataLoaded = !isUserLoading && !isProfileLoading;
-
-        if (isDataLoaded) {
+        // Wait until both user and profile are done loading
+        if (!isUserLoading && !isProfileLoading) {
             if (!user) {
-                // If all data is loaded and there's no user, redirect to login
                 router.replace("/login");
             } else if (userProfile?.tipo_user !== 2) {
-                // If there's a user but they are not an admin, redirect to dashboard
                 router.replace("/dashboard");
             }
         }
-        // This effect runs whenever the loading or data states change.
     }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
     // Show loading state while we wait for user and profile data.
-    // Also, cover the case where `user` is loaded but `userProfile` is still loading.
-    if (isUserLoading || isProfileLoading) {
+    if (isUserLoading || isProfileLoading || !userProfile) {
         return <Loading />;
     }
     
-    // Once everything is loaded, if the user is an admin, show the children.
-    // The useEffect above will handle non-admin redirection.
-    if (user && userProfile?.tipo_user === 2) {
+    // If the user is an admin, show the children. Otherwise, this will be null
+    // for a brief moment before the redirect in useEffect happens.
+    if (userProfile?.tipo_user === 2) {
         return <>{children}</>;
     }
 
