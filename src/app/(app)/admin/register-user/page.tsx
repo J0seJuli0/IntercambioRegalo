@@ -63,7 +63,7 @@ export default function RegisterUserPage() {
         name: values.fullName,
         email: user.email,
         profilePictureUrl: null,
-        role: 'user', // Assign 'user' role by default
+        tipo_user: 1, // Assign 'user' role (1) by default
       }, { merge: false });
       
       toast({
@@ -153,5 +153,3 @@ export default function RegisterUserPage() {
     </div>
   )
 }
-
-    

@@ -23,18 +23,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (!isUserLoading && !isProfileLoading) {
             if (!user) {
                 router.replace("/login");
-            } else if (userProfile?.role !== 'admin') {
+            } else if (userProfile?.tipo_user !== 2) {
                 router.replace("/dashboard");
             }
         }
     }, [user, isUserLoading, userProfile, isProfileLoading, router]);
 
 
-    if (isUserLoading || isProfileLoading || !userProfile || userProfile.role !== 'admin') {
+    if (isUserLoading || isProfileLoading || !userProfile || userProfile.tipo_user !== 2) {
         return <Loading />
     }
 
     return <>{children}</>;
 }
-
-    

@@ -4,7 +4,7 @@ export type User = {
   email: string;
   profilePictureUrl?: string | null;
   interests?: string;
-  role: 'admin' | 'user';
+  tipo_user: 1 | 2; // 1: user, 2: admin
 };
 
 export type Gift = {
@@ -28,5 +28,3 @@ export type SecretSantaAssignment = {
   giverId: string;
   receiverId: string;
 };
-
-    

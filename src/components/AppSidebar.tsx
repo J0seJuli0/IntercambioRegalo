@@ -53,7 +53,7 @@ export default function AppSidebar({ userProfile }: { userProfile: User | null }
   const router = useRouter();
   const { toast } = useToast();
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
-  const isAdmin = userProfile?.role === 'admin';
+  const isAdmin = userProfile?.tipo_user === 2;
 
    useEffect(() => {
     if (user) {
@@ -174,5 +174,3 @@ export const MobileHeader = () => {
     </header>
   );
 };
-
-    
