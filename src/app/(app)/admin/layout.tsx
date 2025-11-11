@@ -20,18 +20,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userDocRef);
 
     useEffect(() => {
-        if (!isUserLoading && !isProfileLoading) {
-            if (!user) {
-                router.replace("/login");
-            } else if (userProfile?.tipo_user !== 2) {
-                router.replace("/dashboard");
-            }
+        if (!isUserLoading && !user) {
+            router.replace("/login");
+            return;
+        }
+        
+        if (!isUserLoading && !isProfileLoading && user && userProfile?.tipo_user !== 2) {
+            router.replace("/dashboard");
         }
     }, [user, isUserLoading, userProfile, isProfileLoading, router]);
 
 
-    if (isUserLoading || isProfileLoading || !userProfile || userProfile.tipo_user !== 2) {
+    if (isUserLoading || isProfileLoading || !userProfile) {
         return <Loading />
+    }
+
+    if (userProfile.tipo_user !== 2) {
+        // This will be caught by the useEffect but as a fallback.
+        return <Loading />;
     }
 
     return <>{children}</>;
