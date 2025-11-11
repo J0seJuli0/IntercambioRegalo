@@ -3,7 +3,7 @@ import { useDoc, useFirestore, useUser } from "@/firebase";
 import { useMemoFirebase } from "@/firebase/provider";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Loading from "../loading";
 import type { User } from "@/lib/types";
 
@@ -20,25 +20,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userDocRef);
 
     useEffect(() => {
-        if (!isUserLoading && !user) {
-            router.replace("/login");
-            return;
+        const isDataLoaded = !isUserLoading && !isProfileLoading;
+
+        if (isDataLoaded) {
+            if (!user) {
+                // If all data is loaded and there's no user, redirect to login
+                router.replace("/login");
+            } else if (userProfile?.tipo_user !== 2) {
+                // If there's a user but they are not an admin, redirect to dashboard
+                router.replace("/dashboard");
+            }
         }
-        
-        if (!isUserLoading && !isProfileLoading && user && userProfile?.tipo_user !== 2) {
-            router.replace("/dashboard");
-        }
-    }, [user, isUserLoading, userProfile, isProfileLoading, router]);
+        // This effect runs whenever the loading or data states change.
+    }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
-
-    if (isUserLoading || isProfileLoading || !userProfile) {
-        return <Loading />
-    }
-
-    if (userProfile.tipo_user !== 2) {
-        // This will be caught by the useEffect but as a fallback.
+    // Show loading state while we wait for user and profile data.
+    // Also, cover the case where `user` is loaded but `userProfile` is still loading.
+    if (isUserLoading || isProfileLoading) {
         return <Loading />;
     }
+    
+    // Once everything is loaded, if the user is an admin, show the children.
+    // The useEffect above will handle non-admin redirection.
+    if (user && userProfile?.tipo_user === 2) {
+        return <>{children}</>;
+    }
 
-    return <>{children}</>;
+    // Fallback loading state for the brief moment before redirection occurs.
+    return <Loading />;
 }
