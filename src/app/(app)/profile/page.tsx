@@ -135,7 +135,7 @@ export default function ProfilePage() {
       const snapshot = await uploadBytes(storageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
-      await handleProfile_update(downloadURL);
+      await handleProfileUpdate(form.getValues("name"), downloadURL);
       setAvatarPreview(downloadURL);
       form.setValue("profilePictureUrl", downloadURL);
 
@@ -175,28 +175,6 @@ export default function ProfilePage() {
       });
     }
   };
-
-  const handleProfile_update = async (photoURL: string) => {
-    if (!user || !auth.currentUser) return;
-     const name = form.getValues("name");
-    try {
-      const userRef = doc(firestore, "users", user.uid);
-      const updateData = { name, profilePictureUrl: photoURL };
-
-      // Update Auth Profile
-      await updateProfile(auth.currentUser, {
-        displayName: name,
-        photoURL: photoURL,
-      });
-
-      // Update Firestore Document
-      setDocumentNonBlocking(userRef, updateData, { merge: true });
-
-    } catch (error: any) {
-      console.error("Error updating profile data: ", error);
-      throw new Error("No se pudo actualizar la información del perfil.");
-    }
-  };
   
   if (isUserLoading) {
     return <Loading />;
@@ -207,8 +185,8 @@ export default function ProfilePage() {
       <h2 className="text-3xl font-bold tracking-tight font-headline">
         Mi Perfil
       </h2>
-      <Form {...form}>
-        <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3">
+        <Form {...form}>
           <Card className="md:col-span-2">
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <CardHeader>
@@ -309,8 +287,8 @@ export default function ProfilePage() {
               </Tabs>
             </CardContent>
           </Card>
-        </div>
-      </Form>
+        </Form>
+      </div>
     </div>
   );
 }
