@@ -80,7 +80,7 @@ service cloud.firestore {
       allow list: if isSignedIn();
       allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
       allow update: if isOwner(userId) && request.resource.data.userId == userId;
-      allow delete: if isOwner(userId) && request.resource.data.userId == userId;
+      allow delete: if isOwner(userId);
     }
 
     /**
@@ -111,6 +111,8 @@ service cloud.firestore {
       function isParticipant(giftExchangeId, userId) {
         return exists(/databases/$(database)/documents/giftExchanges/$(giftExchangeId)/participants/$(userId));
       }
+
+
 
       allow get: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid);
       allow list: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid);
