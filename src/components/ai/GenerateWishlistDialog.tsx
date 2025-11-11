@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useFlow } from "@genkit-ai/next/client";
+import { runFlow } from "@genkit-ai/next/client";
 import { generateWishlist } from "@/ai/flows/generate-wishlist-from-description";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,13 +26,14 @@ type GenerateWishlistDialogProps = {
 
 export function GenerateWishlistDialog({ isOpen, setOpen, onGenerated }: GenerateWishlistDialogProps) {
   const [description, setDescription] = useState("");
-  const { flow, running } = useFlow(generateWishlist);
+  const [running, setRunning] = useState(false);
   const { toast } = useToast();
 
   const handleGenerate = async () => {
     if (!description) return;
+    setRunning(true);
     try {
-      const result = await flow({ description });
+      const result = await runFlow(generateWishlist, { description });
       if (result?.wishlistItems) {
         onGenerated(result.wishlistItems);
         setOpen(false);
@@ -49,6 +50,8 @@ export function GenerateWishlistDialog({ isOpen, setOpen, onGenerated }: Generat
         title: "Error",
         description: "No se pudo generar la lista de deseos. Por favor, inténtalo de nuevo.",
       });
+    } finally {
+      setRunning(false);
     }
   };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useFlow } from "@genkit-ai/next/client";
+import { runFlow } from "@genkit-ai/next/client";
 import { suggestGiftIdeas } from "@/ai/flows/suggest-gift-ideas";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,12 +23,14 @@ type AIGiftSuggesterProps = {
 
 export default function AIGiftSuggester({ wishlistItems, userInterests }: AIGiftSuggesterProps) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const { flow, running } = useFlow(suggestGiftIdeas);
+  const [running, setRunning] = useState(false);
   const { toast } = useToast();
 
   const handleSuggest = async () => {
+    setRunning(true);
+    setSuggestions([]);
     try {
-      const result = await flow({ wishlistItems, userInterests });
+      const result = await runFlow(suggestGiftIdeas, { wishlistItems, userInterests });
       if (result?.giftIdeas) {
         setSuggestions(result.giftIdeas);
       } else {
@@ -46,11 +48,13 @@ export default function AIGiftSuggester({ wishlistItems, userInterests }: AIGift
         title: "Error",
         description: "No se pudieron obtener sugerencias. Por favor, inténtalo de nuevo.",
       });
+    } finally {
+      setRunning(false);
     }
   };
 
   return (
-    <Sheet>
+    <Sheet onOpenChange={(open) => !open && setSuggestions([])}>
       <SheetTrigger asChild>
         <Button variant="outline" onClick={handleSuggest}>
            {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
@@ -87,7 +91,7 @@ export default function AIGiftSuggester({ wishlistItems, userInterests }: AIGift
           )}
           {!running && suggestions.length === 0 && (
             <div className="text-center text-muted-foreground pt-10">
-                <p>Haz clic en "Sugerencias IA" para obtener ideas de regalos.</p>
+                <p>La IA está lista para darte ideas de regalos.</p>
             </div>
           )}
         </div>
