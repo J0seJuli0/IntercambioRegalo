@@ -15,38 +15,26 @@
           "description": "User's email address.",
           "format": "email"
         },
-        "firstName": {
+        "name": {
           "type": "string",
-          "description": "User's first name."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "User's last name."
-        },
-        "address": {
-          "type": "string",
-          "description": "User's physical address."
+          "description": "User's full name."
         },
         "profilePictureUrl": {
           "type": "string",
           "description": "URL to the user's profile picture.",
           "format": "uri"
         },
-        "emailVerificationCode": {
+        "role": {
           "type": "string",
-          "description": "The email verification code sent to the user's email.",
-          "format": "string"
-        },
-        "emailVerified": {
-          "type": "boolean",
-          "description": "Flag indicating whether the user's email has been verified."
+          "description": "The role of the user.",
+          "enum": ["admin", "user"]
         }
       },
       "required": [
         "id",
         "email",
-        "firstName",
-        "lastName"
+        "name",
+        "role"
       ]
     },
     "WishlistItem": {
@@ -304,3 +292,4 @@
     "reasoning": "The Firestore structure is designed to support the GiftMatch application's core features, including user authentication, profile management, wishlist creation, gift exchange participation, and chat functionalities. The structure emphasizes authorization independence and secure list operations. Path-based ownership is used for user-specific data (profile, wishlist items). Collaborative data (gift exchanges, exchange participants) leverages denormalized membership maps to avoid `get()` calls in security rules.\n\n**Authorization Independence:** Denormalization is applied to collaborative data. Specifically, the `ExchangeParticipant` documents include the `giftExchangeId`, facilitating direct access without needing to traverse up the hierarchy. This approach enhances security rule simplicity and allows for atomic operations during exchange creation and participation.\n\n**QAPs Support:**\n*   **Secure List Operations (Users):** The `/users/{userId}` collection enforces ownership, allowing listing only by authenticated users or admins (if a separate admin role collection were implemented).\n*   **Secure List Operations (WishlistItems):** The `/users/{userId}/wishlistItems/{wishlistItemId}` path ensures that only the owner (`userId`) can list their wishlist items.\n*   **Secure List Operations (GiftExchanges):** Listing gift exchanges requires checking membership in the exchange. The `ExchangeParticipant` subcollection and the potential inclusion of a `members` map within the GiftExchange (if needed for direct listing of exchanges the user is a part of) facilitates this, with the user id present in the ExchangeParticipant docs for that user. Chat message retrieval is also access controlled by giftExchangeId."
   }
 }
+    

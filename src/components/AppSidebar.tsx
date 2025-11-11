@@ -9,6 +9,8 @@ import {
   UserCircle,
   Users,
   PanelLeft,
+  Shield,
+  UserPlus
 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import {
@@ -20,6 +22,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarTrigger,
+  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Logo from "./Logo";
@@ -28,6 +31,8 @@ import { useAuth, useUser, useFirestore } from "@/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
+import type { User } from "@/lib/types";
+
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -36,7 +41,11 @@ const menuItems = [
   { href: "/profile", label: "Mi Perfil", icon: UserCircle },
 ];
 
-export default function AppSidebar() {
+const adminMenuItems = [
+    { href: "/admin/register-user", label: "Registrar Usuario", icon: UserPlus }
+]
+
+export default function AppSidebar({ userProfile }: { userProfile: User | null }) {
   const pathname = usePathname();
   const { user } = useUser();
   const auth = useAuth();
@@ -44,6 +53,7 @@ export default function AppSidebar() {
   const router = useRouter();
   const { toast } = useToast();
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
+  const isAdmin = userProfile?.role === 'admin';
 
    useEffect(() => {
     if (user) {
@@ -100,6 +110,29 @@ export default function AppSidebar() {
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
+        
+        {isAdmin && (
+            <>
+                <SidebarSeparator />
+                <div className="px-3 text-xs font-semibold text-sidebar-foreground/70 uppercase py-2">Administración</div>
+                <SidebarMenu>
+                    {adminMenuItems.map((item) => (
+                        <SidebarMenuItem key={item.label}>
+                        <SidebarMenuButton
+                            asChild
+                            isActive={pathname.startsWith(item.href)}
+                        >
+                            <Link href={item.href}>
+                            <item.icon />
+                            <span>{item.label}</span>
+                            </Link>
+                        </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    ))}
+                </SidebarMenu>
+            </>
+        )}
+
       </SidebarContent>
       <SidebarFooter>
         {user && (
@@ -141,3 +174,5 @@ export const MobileHeader = () => {
     </header>
   );
 };
+
+    

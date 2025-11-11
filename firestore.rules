@@ -17,7 +17,7 @@
  * - Users can only access their own profile data and wishlists.
  * - Gift exchange access is restricted to participants.
  * - Chat message access is restricted to senders, recipients, and participants of the associated gift exchange.
- * - Listing of all users is allowed for participants page.
+ * - Admins can create new users. Regular users cannot.
  *
  * Denormalization for Authorization:
  * - ExchangeParticipant documents include the giftExchangeId to avoid needing to traverse up the hierarchy for authorization.
@@ -25,23 +25,27 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
 
     /**
      * @description Protects user profile information.
      * @path /users/{userId}
-     * @allow (get, list, write, delete) - Authenticated user can access and modify their own profile.
-     * @deny - An unauthenticated user cannot access or modify profiles. A user cannot modify another user's profile.
-     * @principle Enforces document ownership.
+     * @allow (get, list, write, delete) - Authenticated user can access and modify their own profile. Admins can create users.
+     * @deny - An unauthenticated user cannot access or modify profiles. A user cannot modify another user's profile unless they are an admin.
+     * @principle Enforces document ownership and role-based access.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      
       // We are creating a new document
       function isCreating() {
         return resource == null;
@@ -54,8 +58,7 @@ service cloud.firestore {
 
       allow get: if isOwner(userId);
       allow list: if isSignedIn();
-      allow write: if (isCreating() && isOwner(userId) && request.resource.data.id == userId) || 
-                     (isUpdating() && isOwner(userId));
+      allow write: if (isCreating() && (isAdmin() || request.resource.data.id == userId)) || (isUpdating() && isOwner(userId));
       allow delete: if isOwner(userId) && isUpdating();
     }
 
@@ -67,14 +70,6 @@ service cloud.firestore {
      * @principle Restricts access to a user's own data tree.
      */
     match /users/{userId}/wishlistItems/{wishlistItemId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
       // Any authenticated user can view a wishlist. Only owner can modify.
       allow get: if isSignedIn();
       allow list: if isSignedIn();
@@ -88,10 +83,6 @@ service cloud.firestore {
      * @path /giftExchanges/{giftExchangeId}
      */
     match /giftExchanges/{giftExchangeId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get: if true;
       allow list: if true; // TODO: Restrict listing to members of the exchange
       allow create: if isSignedIn(); // TODO: Add conditions for creating a gift exchange
@@ -104,15 +95,9 @@ service cloud.firestore {
      * @path /giftExchanges/{giftExchangeId}/participants/{exchangeParticipantId}
      */
     match /giftExchanges/{giftExchangeId}/participants/{exchangeParticipantId} {
-       function isSignedIn() {
-        return request.auth != null;
-      }
-
       function isParticipant(giftExchangeId, userId) {
         return exists(/databases/$(database)/documents/giftExchanges/$(giftExchangeId)/participants/$(userId));
       }
-
-
 
       allow get: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid);
       allow list: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid);
@@ -126,10 +111,6 @@ service cloud.firestore {
      * @path /chatMessages/{chatMessageId}
      */
     match /chatMessages/{chatMessageId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get: if isSignedIn() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.recipientId);
       allow list: if false; // Listing chat messages is disallowed.
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.senderId;
@@ -138,3 +119,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
