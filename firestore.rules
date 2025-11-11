@@ -54,8 +54,8 @@ service cloud.firestore {
 
       allow get: if isOwner(userId);
       allow list: if isSignedIn();
-      allow write: if isOwner(userId) && 
-                      (isCreating() && request.resource.data.id == userId || isUpdating());
+      allow write: if (isCreating() && isOwner(userId) && request.resource.data.id == userId) || 
+                     (isUpdating() && isOwner(userId));
       allow delete: if isOwner(userId) && isUpdating();
     }
 
