@@ -5,9 +5,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { updateProfile } from "firebase/auth";
-import { doc } from "firebase/firestore";
+import { doc, getFirestore } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, User as UserIcon, Image as ImageIcon, Link as LinkIcon, RefreshCcw } from "lucide-react";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,14 +22,16 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Loading from "../loading";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const profileSchema = z.object({
   name: z.string().min(1, "El nombre es requerido."),
   email: z.string().email("Correo electrónico inválido."),
+  profilePictureUrl: z.string().url("URL inválida").optional().or(z.literal('')),
 });
 
 export default function ProfilePage() {
@@ -35,12 +39,15 @@ export default function ProfilePage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [isUploading, setIsUploading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: "",
       email: "",
+      profilePictureUrl: "",
     },
   });
 
@@ -49,40 +56,122 @@ export default function ProfilePage() {
       form.reset({
         name: user.displayName || "",
         email: user.email || "",
+        profilePictureUrl: user.photoURL || "",
       });
+      setAvatarPreview(user.photoURL || `https://avatar.vercel.sh/${user.uid}.png`);
     }
   }, [user, form]);
   
-  const onSubmit = async (values: z.infer<typeof profileSchema>) => {
-    if (!user || !auth.currentUser) return;
+  const handleProfileUpdate = async (name: string, photoURL?: string) => {
+     if (!user || !auth.currentUser) return;
+     try {
+       const userRef = doc(firestore, "users", user.uid);
+       const updateData: { name: string; profilePictureUrl?: string } = { name };
 
-    // Use a submitting state from the form to prevent double-submits
-    if (form.formState.isSubmitting) return;
+       // Update Auth Profile
+       await updateProfile(auth.currentUser, { 
+         displayName: name,
+         ...(photoURL && { photoURL }),
+       });
 
-    form.control.register('name', { disabled: true });
+       // Update Firestore Document
+       if (photoURL) {
+         updateData.profilePictureUrl = photoURL;
+       }
+       setDocumentNonBlocking(userRef, updateData, { merge: true });
+
+     } catch (error: any) {
+        console.error("Error updating profile data: ", error);
+        throw new Error("No se pudo actualizar la información del perfil.");
+     }
+  }
+
+  const handleUrlSubmit = async () => {
+    const url = form.getValues("profilePictureUrl");
+    if (url) {
+      setIsUploading(true);
+      try {
+        await handleProfileUpdate(form.getValues("name"), url);
+        setAvatarPreview(url);
+        toast({
+          title: "¡Avatar actualizado!",
+          description: "Tu foto de perfil ha sido cambiada.",
+        });
+      } catch (error: any) {
+        toast({ variant: "destructive", title: "Error", description: error.message });
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
+
+  const handleAvatarGenerate = async () => {
+     if (!user) return;
+     const url = `https://avatar.vercel.sh/${user.uid}.png?username=${encodeURIComponent(user.displayName || user.email || 'user')}`;
+     setIsUploading(true);
+      try {
+        await handleProfileUpdate(form.getValues("name"), url);
+        setAvatarPreview(url);
+        toast({
+          title: "¡Avatar generado!",
+          description: "Tu nuevo avatar ha sido asignado.",
+        });
+      } catch (error: any) {
+        toast({ variant: "destructive", title: "Error", description: error.message });
+      } finally {
+        setIsUploading(false);
+      }
+  }
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    setIsUploading(true);
+    const storage = getStorage();
+    const storageRef = ref(storage, `profilePictures/${user.uid}/${file.name}`);
 
     try {
-      // Update Firebase Auth profile
-      await updateProfile(auth.currentUser, { displayName: values.name });
-
-      // Update Firestore user document
-      const userRef = doc(firestore, "users", user.uid);
-      setDocumentNonBlocking(userRef, { name: values.name, email: values.email }, { merge: true });
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      await handleProfileUpdate(form.getValues("name"), downloadURL);
+      setAvatarPreview(downloadURL);
+      form.setValue("profilePictureUrl", downloadURL);
 
       toast({
-        title: "Perfil actualizado",
-        description: "Tu información ha sido guardada correctamente.",
+        title: "¡Foto subida!",
+        description: "Tu foto de perfil ha sido actualizada.",
       });
 
     } catch (error: any) {
-      console.error("Error updating profile: ", error);
+      console.error("Error uploading file:", error);
+       toast({
+        variant: "destructive",
+        title: "Error al subir",
+        description: "No se pudo subir la imagen. Inténtalo de nuevo.",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+
+  const onSubmit = async (values: z.infer<typeof profileSchema>) => {
+    if (form.formState.isSubmitting) return;
+
+    try {
+      await handleProfileUpdate(values.name);
+      toast({
+        title: "Perfil actualizado",
+        description: "Tu nombre ha sido guardado correctamente.",
+      });
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error al actualizar",
         description: error.message || "No se pudo guardar tu información.",
       });
-    } finally {
-        form.control.register('name', { disabled: false });
     }
   };
   
@@ -95,14 +184,14 @@ export default function ProfilePage() {
       <h2 className="text-3xl font-bold tracking-tight font-headline">
         Mi Perfil
       </h2>
-      <div className="grid gap-6">
-        <Card>
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card className="md:col-span-2">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <CardHeader>
                 <CardTitle>Información Personal</CardTitle>
                 <CardDescription>
-                  Actualiza tu nombre y correo electrónico. El correo no se puede cambiar.
+                  Actualiza tu nombre y correo electrónico.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -129,7 +218,7 @@ export default function ProfilePage() {
                         <FormControl>
                           <Input type="email" {...field} disabled />
                         </FormControl>
-                        <FormMessage />
+                         <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -144,22 +233,58 @@ export default function ProfilePage() {
             </form>
           </Form>
         </Card>
-        <Card>
+         <Card>
           <CardHeader>
-            <CardTitle>Notificaciones</CardTitle>
-            <CardDescription>
-              Gestiona cómo te notificamos. (Funcionalidad no implementada)
-            </CardDescription>
+            <CardTitle>Foto de Perfil</CardTitle>
+            <CardDescription>Elige cómo te verán los demás.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="email-notifications" className="text-muted-foreground">Notificaciones por Correo</Label>
-              <Switch id="email-notifications" disabled />
+          <CardContent className="flex flex-col items-center gap-4">
+            <div className="relative">
+              {isUploading && (
+                <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-full">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              )}
+               <Avatar className="h-32 w-32 border-4 border-primary/20">
+                {avatarPreview ? (
+                  <AvatarImage src={avatarPreview} alt="Foto de perfil" data-ai-hint="person face" />
+                ) : null }
+                <AvatarFallback className="text-4xl">
+                  <UserIcon />
+                </AvatarFallback>
+              </Avatar>
             </div>
-             <div className="flex items-center justify-between">
-              <Label htmlFor="push-notifications" className="text-muted-foreground">Notificaciones Push</Label>
-              <Switch id="push-notifications" disabled />
-            </div>
+
+            <Tabs defaultValue="upload" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="upload"><ImageIcon/></TabsTrigger>
+                <TabsTrigger value="url"><LinkIcon/></TabsTrigger>
+                <TabsTrigger value="avatar"><RefreshCcw/></TabsTrigger>
+              </TabsList>
+              <TabsContent value="upload" className="flex flex-col items-center gap-2 mt-4">
+                <Label htmlFor="picture" className="text-center text-sm text-muted-foreground">Sube una imagen desde tu dispositivo.</Label>
+                <Input id="picture" type="file" accept="image/*" onChange={handleFileUpload} className="text-xs" disabled={isUploading} />
+              </TabsContent>
+              <TabsContent value="url" className="space-y-2 mt-4">
+                 <FormField
+                    control={form.control}
+                    name="profilePictureUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Input placeholder="https://ejemplo.com/imagen.png" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                <Button onClick={handleUrlSubmit} className="w-full" disabled={isUploading}>Usar URL</Button>
+              </TabsContent>
+              <TabsContent value="avatar" className="flex flex-col items-center gap-2 mt-4">
+                 <p className="text-center text-sm text-muted-foreground">Genera un avatar único basado en tu nombre.</p>
+                 <Button onClick={handleAvatarGenerate} className="w-full" variant="secondary" disabled={isUploading}>Generar Avatar</Button>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

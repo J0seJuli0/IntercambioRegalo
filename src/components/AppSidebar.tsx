@@ -19,9 +19,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
-  useSidebar,
   SidebarTrigger,
-  SidebarMenuBadge,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Logo from "./Logo";
@@ -63,7 +61,7 @@ export default function AppSidebar() {
 
 
   return (
-    <Sidebar collapsible="none" className="h-screen sticky top-0">
+    <Sidebar>
       <SidebarHeader>
         <Logo />
       </SidebarHeader>
@@ -82,7 +80,6 @@ export default function AppSidebar() {
                 <Link href={item.href}>
                   <item.icon />
                   <span>{item.label}</span>
-                  {item.badge && <SidebarMenuBadge>{item.badge}</SidebarMenuBadge>}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -93,11 +90,11 @@ export default function AppSidebar() {
         {user && (
           <div className="flex items-center gap-3 p-2">
             <Avatar className="size-9">
-              {user.photoURL && <AvatarImage src={user.photoURL} data-ai-hint="person face" />}
+              <AvatarImage src={user.photoURL || `https://avatar.vercel.sh/${user.uid}.png`} data-ai-hint="person face" />
               <AvatarFallback>{user.displayName?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-sidebar-foreground">{user.displayName}</span>
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-sm font-semibold text-sidebar-foreground truncate">{user.displayName}</span>
               <span className="text-xs text-sidebar-foreground/70 truncate">
                 {user.email}
               </span>
