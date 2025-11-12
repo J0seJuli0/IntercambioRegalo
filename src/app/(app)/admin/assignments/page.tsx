@@ -113,7 +113,7 @@ export default function AssignmentsPage() {
                         <div className="flex items-center gap-3">
                           <Avatar>
                             <AvatarImage src={getAvatar(giver) || undefined} />
-                            <AvatarFallback>{getFallback(giver)}</Fallback>
+                            <AvatarFallback>{getFallback(giver)}</AvatarFallback>
                           </Avatar>
                           <div>
                             <div className="font-medium">{giver.name}</div>
@@ -126,7 +126,7 @@ export default function AssignmentsPage() {
                         <div className="flex items-center gap-3">
                           <Avatar>
                             <AvatarImage src={getAvatar(receiver) || undefined} />
-                            <AvatarFallback>{getFallback(receiver)}</Fallback>
+                            <AvatarFallback>{getFallback(receiver)}</AvatarFallback>
                           </Avatar>
                           <div>
                             <div className="font-medium">{receiver.name}</div>
