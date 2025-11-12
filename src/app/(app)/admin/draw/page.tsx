@@ -1,16 +1,19 @@
-
 'use client';
 import { useState } from "react";
-import { useCollection, useFirestore } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { useCollection, useFirestore, setDocumentNonBlocking } from "@/firebase";
+import { collection, doc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, PartyPopper, Users, Shuffle } from "lucide-react";
-import { assignSecretSanta } from "@/ai/flows/assign-secret-santa";
-import { runFlow } from "@genkit-ai/next/client";
 import type { User } from "@/lib/types";
+
+// Type for the assignment object
+type Assignment = {
+  giverId: string;
+  receiverId: string | null;
+};
 
 export default function AdminDrawPage() {
   const firestore = useFirestore();
@@ -22,6 +25,67 @@ export default function AdminDrawPage() {
 
   const exchange = { id: "global-exchange", name: "Intercambio Navideño 2025" };
 
+  const performDraw = (userIds: string[]): Assignment[] => {
+    if (userIds.length < 2) {
+      return [];
+    }
+
+    let givers = [...userIds];
+    let receivers = [...userIds];
+
+    // Shuffle arrays to ensure randomness
+    givers = givers.sort(() => Math.random() - 0.5);
+    receivers = receivers.sort(() => Math.random() - 0.5);
+
+    let assignments: Assignment[] = [];
+    const assignedReceivers = new Set<string>();
+
+    for (const giverId of givers) {
+      let found = false;
+      for (let i = 0; i < receivers.length; i++) {
+        const receiverId = receivers[i];
+        if (giverId !== receiverId && !assignedReceivers.has(receiverId)) {
+          assignments.push({ giverId, receiverId });
+          assignedReceivers.add(receiverId);
+          receivers.splice(i, 1);
+          found = true;
+          break;
+        }
+      }
+       if (!found) { // Handle the last person who might only be able to draw themselves
+            const swapIndex = assignments.findIndex(a => a.receiverId !== giverId);
+            if (swapIndex !== -1) {
+                const receiverToSwap = assignments[swapIndex].receiverId;
+                const lastReceiver = receivers[0];
+
+                if(lastReceiver) {
+                     assignments[swapIndex].receiverId = lastReceiver;
+                     assignments.push({ giverId, receiverId: receiverToSwap });
+                     assignedReceivers.add(lastReceiver);
+                } else {
+                    // Fallback for the very last person if no swap is possible (should be rare)
+                    assignments.push({ giverId, receiverId: null });
+                }
+
+            } else {
+                 assignments.push({ giverId, receiverId: null }); // Very unlikely scenario
+            }
+        }
+    }
+    
+    // Final check for self-assignments
+    for (let i = 0; i < assignments.length; i++) {
+        if (assignments[i].giverId === assignments[i].receiverId) {
+            const nextI = (i + 1) % assignments.length;
+            const temp = assignments[i].receiverId;
+            assignments[i].receiverId = assignments[nextI].receiverId;
+            assignments[nextI].receiverId = temp;
+        }
+    }
+
+    return assignments.filter(a => a.receiverId != null); // Filter out any failed assignments
+  };
+
   const handleDraw = async () => {
     if (!allUsers || allUsers.length < 2) {
       toast({ variant: "destructive", title: "No hay suficientes usuarios", description: "Se necesitan al menos 2 participantes para el sorteo." });
@@ -29,16 +93,27 @@ export default function AdminDrawPage() {
     }
     setIsDrawing(true);
     try {
-      const result = await runFlow(assignSecretSanta, { 
-        userIds: allUsers.map(u => u.id),
-        exchangeId: exchange.id
-      });
-      
-      if (result && result.success) {
-        toast({ title: "¡Sorteo Realizado!", description: result.message });
-      } else {
-        throw new Error(result.message || "El sorteo no se completó correctamente.");
+      const userIds = allUsers.map(u => u.id);
+      const assignments = performDraw(userIds);
+
+      if (assignments.length === 0) {
+        throw new Error("No se pudieron generar las asignaciones.");
       }
+
+      // Save assignments to Firestore
+      for (const assignment of assignments) {
+        if (assignment.giverId && assignment.receiverId) {
+           const participantRef = doc(firestore, `giftExchanges/${exchange.id}/participants/${assignment.giverId}`);
+           setDocumentNonBlocking(participantRef, {
+             userId: assignment.giverId,
+             giftExchangeId: exchange.id,
+             id: assignment.giverId,
+             targetUserId: assignment.receiverId,
+           }, { merge: true });
+        }
+      }
+      
+      toast({ title: "¡Sorteo Realizado!", description: "Las asignaciones se han guardado con éxito." });
 
     } catch (error) {
       console.error("Draw error:", error);
