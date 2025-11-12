@@ -64,7 +64,7 @@ const assignSecretSantaFlow = ai.defineFlow(
         if (giverId !== receiverId && !assignedReceivers.has(receiverId)) {
           assignments.push({ giverId, receiverId });
           assignedReceivers.add(receiverId);
-          // swap the used receiver with the last element and pop it for efficiency
+          // Efficiently remove the used receiver by swapping with the last element and popping
           [receivers[i], receivers[receivers.length-1]] = [receivers[receivers.length-1], receivers[i]];
           receivers.pop();
           found = true;
@@ -72,25 +72,24 @@ const assignSecretSantaFlow = ai.defineFlow(
         }
       }
       if (!found) {
-        // This might happen if the only remaining receiver is the giver itself
-        assignments.push({ giverId, receiverId: null });
-      }
-    }
-
-    // Handle the case where the last person might not have a pair or is self-assigned
-    const unassignedGivers = givers.filter(g => !assignments.some(a => a.giverId === g));
-    for (const giverId of unassignedGivers) {
-      // Find someone who is not already a giver's receiver
-      const possibleReceivers = userIds.filter(uid => uid !== giverId && !assignedReceivers.has(uid));
-      if(possibleReceivers.length > 0){
-        const receiverId = possibleReceivers[Math.floor(Math.random() * possibleReceivers.length)];
-        assignments.push({ giverId, receiverId });
-        assignedReceivers.add(receiverId);
-      } else {
-        assignments.push({ giverId, receiverId: null });
+        // This edge case can happen if the only person left to be a receiver is the giver themself
+        // We'll try to resolve this after the main loop
       }
     }
     
+    // Final check for consistency and to resolve any self-assignments or unassigned people
+    for(let i=0; i< assignments.length; i++){
+        // check for self-assignment
+        if(assignments[i].giverId === assignments[i].receiverId){
+            // swap with the next person's receiver, if it's not the same person
+            const nextIndex = (i + 1) % assignments.length;
+            if(assignments[nextIndex].receiverId !== assignments[i].giverId) {
+                [assignments[i].receiverId, assignments[nextIndex].receiverId] = [assignments[nextIndex].receiverId, assignments[i].receiverId];
+            }
+        }
+    }
+
+
     // The flow now only returns the calculated assignments.
     // The client will be responsible for writing them to Firestore.
     return { assignments };

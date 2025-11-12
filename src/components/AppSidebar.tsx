@@ -10,7 +10,8 @@ import {
   Users,
   PanelLeft,
   MessageSquare,
-  UserPlus
+  UserPlus,
+  Shuffle
 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import {
@@ -43,7 +44,8 @@ const menuItems = [
 ];
 
 const adminMenuItems = [
-    { href: "/admin/register-user", label: "Registrar Usuario", icon: UserPlus }
+    { href: "/admin/register-user", label: "Registrar Usuario", icon: UserPlus },
+    { href: "/admin/draw", label: "Realizar Sorteo", icon: Shuffle }
 ]
 
 export default function AppSidebar({ userProfile }: { userProfile: User | null }) {

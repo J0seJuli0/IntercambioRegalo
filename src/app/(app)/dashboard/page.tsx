@@ -18,8 +18,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Gift as GiftType, User, ExchangeParticipant } from "@/lib/types";
 import { Progress } from "@/components/ui/progress";
 import CountdownTimer from "@/components/dashboard/CountdownTimer";
-import { assignSecretSanta } from "@/ai/flows/assign-secret-santa";
-import { runFlow } from "@genkit-ai/next/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -28,16 +26,14 @@ import { Loader2 } from "lucide-react";
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const { toast } = useToast();
-  const [isDrawing, setIsDrawing] = useState(false);
 
   // --- Data Fetching ---
-
   const userDocRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
   const { data: userProfile } = useDoc<User>(userDocRef);
+
 
   const exchange = { id: "global-exchange", name: "Intercambio Navideño 2025", budget: 50 };
 
@@ -54,9 +50,6 @@ export default function DashboardPage() {
   }, [firestore, assignment]);
 
   const { data: receiver, isLoading: isReceiverLoading } = useDoc<User>(receiverDocRef);
-
-  const allUsersQuery = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
-  const { data: allUsers } = useCollection<User>(allUsersQuery);
 
   const wishlistQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -91,45 +84,6 @@ export default function DashboardPage() {
 
   const drawDate = getNextDrawDate();
 
-  // --- Handlers ---
-  
-  const handleDraw = async () => {
-    if (!allUsers || allUsers.length < 2) {
-      toast({ variant: "destructive", title: "No hay suficientes usuarios", description: "Se necesitan al menos 2 participantes para el sorteo." });
-      return;
-    }
-    setIsDrawing(true);
-    try {
-      const result = await runFlow(assignSecretSanta, { 
-        userIds: allUsers.map(u => u.id),
-        exchangeId: exchange.id
-      });
-      
-      if (result && result.assignments) {
-        // The flow returns assignments, now we save them from the client
-        for (const assignment of result.assignments) {
-            if(assignment.giverId && assignment.receiverId) {
-                const participantRef = doc(firestore, `giftExchanges/${exchange.id}/participants/${assignment.giverId}`);
-                setDocumentNonBlocking(participantRef, {
-                    userId: assignment.giverId,
-                    giftExchangeId: exchange.id,
-                    targetUserId: assignment.receiverId
-                }, { merge: true });
-            }
-        }
-        toast({ title: "¡Sorteo Realizado!", description: "Las asignaciones se han completado. ¡Refresca para ver los resultados!" });
-      } else {
-        throw new Error("El sorteo no devolvió asignaciones.");
-      }
-
-    } catch (error) {
-      console.error("Draw error:", error);
-      toast({ variant: "destructive", title: "Error en el sorteo", description: "No se pudo completar la asignación." });
-    } finally {
-      setIsDrawing(false);
-    }
-  };
-
   if (isUserLoading || isAssignmentLoading || isReceiverLoading) {
     return (
        <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -157,12 +111,6 @@ export default function DashboardPage() {
         <h2 className="text-3xl font-bold tracking-tight font-headline">
           ¡Hola, {user.displayName || user.email}! 👋
         </h2>
-         {userProfile?.tipo_user === 2 && (
-            <Button onClick={handleDraw} disabled={isDrawing}>
-              {isDrawing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PartyPopper className="mr-2 h-4 w-4" />}
-              Realizar Sorteo
-            </Button>
-          )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
