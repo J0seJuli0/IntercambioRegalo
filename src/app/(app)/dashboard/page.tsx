@@ -1,7 +1,7 @@
 'use client';
 import Link from "next/link";
 import { ArrowRight, Gift, Users, Star, CalendarClock, PartyPopper } from "lucide-react";
-import { useUser, useFirestore, useCollection, useDoc } from "@/firebase";
+import { useUser, useFirestore, useCollection, useDoc, setDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
 import {
@@ -44,7 +44,7 @@ export default function DashboardPage() {
   const assignmentDocRef = useMemoFirebase(() => {
     if (!user) return null;
     return doc(firestore, `giftExchanges/${exchange.id}/participants`, user.uid);
-  }, [firestore, user]);
+  }, [firestore, user, exchange.id]);
 
   const { data: assignment, isLoading: isAssignmentLoading } = useDoc<ExchangeParticipant>(assignmentDocRef);
 
@@ -100,11 +100,28 @@ export default function DashboardPage() {
     }
     setIsDrawing(true);
     try {
-      await runFlow(assignSecretSanta, { 
+      const result = await runFlow(assignSecretSanta, { 
         userIds: allUsers.map(u => u.id),
         exchangeId: exchange.id
       });
-      toast({ title: "¡Sorteo Realizado!", description: "Las asignaciones se han completado. ¡Refresca para ver los resultados!" });
+      
+      if (result && result.assignments) {
+        // The flow returns assignments, now we save them from the client
+        for (const assignment of result.assignments) {
+            if(assignment.giverId && assignment.receiverId) {
+                const participantRef = doc(firestore, `giftExchanges/${exchange.id}/participants/${assignment.giverId}`);
+                setDocumentNonBlocking(participantRef, {
+                    userId: assignment.giverId,
+                    giftExchangeId: exchange.id,
+                    targetUserId: assignment.receiverId
+                }, { merge: true });
+            }
+        }
+        toast({ title: "¡Sorteo Realizado!", description: "Las asignaciones se han completado. ¡Refresca para ver los resultados!" });
+      } else {
+        throw new Error("El sorteo no devolvió asignaciones.");
+      }
+
     } catch (error) {
       console.error("Draw error:", error);
       toast({ variant: "destructive", title: "Error en el sorteo", description: "No se pudo completar la asignación." });

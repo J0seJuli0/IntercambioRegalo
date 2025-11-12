@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A flow to assign Secret Santa pairs using firebase-admin.
+ * @fileOverview A flow to assign Secret Santa pairs.
  *
  * - assignSecretSanta - A function that takes user IDs and assigns pairs.
  * - AssignSecretSantaInput - The input type for the assignSecret-santa function.
@@ -10,14 +10,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import * as admin from 'firebase-admin';
-
-// Initialize Firebase Admin SDK if not already initialized
-if (!admin.apps.length) {
-  admin.initializeApp();
-}
-const firestore = admin.firestore();
-
 
 const AssignSecretSantaInputSchema = z.object({
   userIds: z.array(z.string()).describe('A list of user IDs to be paired up.'),
@@ -47,7 +39,7 @@ const assignSecretSantaFlow = ai.defineFlow(
     inputSchema: AssignSecretSantaInputSchema,
     outputSchema: AssignSecretSantaOutputSchema,
   },
-  async ({ userIds, exchangeId }) => {
+  async ({ userIds }) => {
     // Basic validation
     if (userIds.length < 2) {
       // Not throwing an error, just returning no assignments
@@ -99,23 +91,8 @@ const assignSecretSantaFlow = ai.defineFlow(
       }
     }
     
-    // --- Save Assignments to Firestore using Admin SDK ---
-    const batch = firestore.batch();
-    
-    // Create new assignments
-    for (const assignment of assignments) {
-      if (assignment.receiverId) {
-        const participantRef = firestore.doc(`giftExchanges/${exchangeId}/participants/${assignment.giverId}`);
-        batch.set(participantRef, {
-            userId: assignment.giverId,
-            giftExchangeId: exchangeId,
-            targetUserId: assignment.receiverId
-        }, { merge: true });
-      }
-    }
-
-    await batch.commit();
-
+    // The flow now only returns the calculated assignments.
+    // The client will be responsible for writing them to Firestore.
     return { assignments };
   }
 );
