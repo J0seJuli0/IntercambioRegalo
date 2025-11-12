@@ -1,10 +1,11 @@
+
 'use client';
 import { useState } from "react";
 import { useCollection, useFirestore, setDocumentNonBlocking } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, PartyPopper, Users, Shuffle } from "lucide-react";
 import { assignSecretSanta } from "@/ai/flows/assign-secret-santa";
