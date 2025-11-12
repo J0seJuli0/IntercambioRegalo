@@ -12,7 +12,7 @@ import type { User } from "@/lib/types";
 // Type for the assignment object
 type Assignment = {
   giverId: string;
-  receiverId: string | null;
+  receiverId: string;
 };
 
 export default function AdminDrawPage() {
@@ -25,65 +25,45 @@ export default function AdminDrawPage() {
 
   const exchange = { id: "global-exchange", name: "Intercambio Navideño 2025" };
 
-  const performDraw = (userIds: string[]): Assignment[] => {
-    if (userIds.length < 2) {
+ const performDraw = (users: User[]): Assignment[] => {
+    // 1. Filter out any users without an ID, just in case.
+    let participants = users.filter(u => u.id);
+    const participantCount = participants.length;
+
+    if (participantCount < 2) {
       return [];
     }
 
-    let givers = [...userIds];
-    let receivers = [...userIds];
-
-    // Shuffle arrays to ensure randomness
-    givers = givers.sort(() => Math.random() - 0.5);
-    receivers = receivers.sort(() => Math.random() - 0.5);
-
-    let assignments: Assignment[] = [];
-    const assignedReceivers = new Set<string>();
-
-    for (const giverId of givers) {
-      let found = false;
-      for (let i = 0; i < receivers.length; i++) {
-        const receiverId = receivers[i];
-        if (giverId !== receiverId && !assignedReceivers.has(receiverId)) {
-          assignments.push({ giverId, receiverId });
-          assignedReceivers.add(receiverId);
-          receivers.splice(i, 1);
-          found = true;
-          break;
-        }
-      }
-       if (!found) { // Handle the last person who might only be able to draw themselves
-            const swapIndex = assignments.findIndex(a => a.receiverId !== giverId);
-            if (swapIndex !== -1) {
-                const receiverToSwap = assignments[swapIndex].receiverId;
-                const lastReceiver = receivers[0];
-
-                if(lastReceiver) {
-                     assignments[swapIndex].receiverId = lastReceiver;
-                     assignments.push({ giverId, receiverId: receiverToSwap });
-                     assignedReceivers.add(lastReceiver);
-                } else {
-                    // Fallback for the very last person if no swap is possible (should be rare)
-                    assignments.push({ giverId, receiverId: null });
-                }
-
-            } else {
-                 assignments.push({ giverId, receiverId: null }); // Very unlikely scenario
-            }
-        }
-    }
-    
-    // Final check for self-assignments
-    for (let i = 0; i < assignments.length; i++) {
-        if (assignments[i].giverId === assignments[i].receiverId) {
-            const nextI = (i + 1) % assignments.length;
-            const temp = assignments[i].receiverId;
-            assignments[i].receiverId = assignments[nextI].receiverId;
-            assignments[nextI].receiverId = temp;
-        }
+    // 2. Handle odd number of participants
+    if (participantCount % 2 !== 0) {
+      // Remove one random person to make the count even. That person won't participate.
+      const excludedIndex = Math.floor(Math.random() * participantCount);
+      participants.splice(excludedIndex, 1);
+       toast({
+        title: "Número Impar de Participantes",
+        description: `Un participante ha sido excluido para poder realizar el sorteo.`,
+      });
     }
 
-    return assignments.filter(a => a.receiverId != null); // Filter out any failed assignments
+    // 3. Shuffle the participants array
+    for (let i = participants.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [participants[i], participants[j]] = [participants[j], participants[i]];
+    }
+
+    // 4. Create assignments in a circle (1 -> 2, 2 -> 3, ..., n -> 1)
+    // This guarantees no one gets themselves.
+    const assignments: Assignment[] = [];
+    for (let i = 0; i < participants.length; i++) {
+      const giver = participants[i];
+      const receiver = participants[(i + 1) % participants.length]; // The next person in the circle
+      assignments.push({
+        giverId: giver.id,
+        receiverId: receiver.id,
+      });
+    }
+
+    return assignments;
   };
 
   const handleDraw = async () => {
@@ -93,11 +73,10 @@ export default function AdminDrawPage() {
     }
     setIsDrawing(true);
     try {
-      const userIds = allUsers.map(u => u.id);
-      const assignments = performDraw(userIds);
+      const assignments = performDraw(allUsers);
 
       if (assignments.length === 0) {
-        throw new Error("No se pudieron generar las asignaciones.");
+        throw new Error("No se pudieron generar las asignaciones. Asegúrate de tener al menos 2 participantes.");
       }
 
       // Save assignments to Firestore
@@ -107,13 +86,15 @@ export default function AdminDrawPage() {
            setDocumentNonBlocking(participantRef, {
              userId: assignment.giverId,
              giftExchangeId: exchange.id,
-             id: assignment.giverId,
-             targetUserId: assignment.receiverId,
+             id: assignment.giverId, // The doc ID is the giver's ID
+             giverId: assignment.giverId, // Explicitly add giverId
+             receiverId: assignment.receiverId, // Explicitly add receiverId
+             targetUserId: assignment.receiverId, // Keep for compatibility with dashboard
            }, { merge: true });
         }
       }
       
-      toast({ title: "¡Sorteo Realizado!", description: "Las asignaciones se han guardado con éxito." });
+      toast({ title: "¡Sorteo Realizado!", description: `Se han generado ${assignments.length} asignaciones con éxito.` });
 
     } catch (error) {
       console.error("Draw error:", error);

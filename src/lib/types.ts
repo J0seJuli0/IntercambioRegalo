@@ -27,10 +27,12 @@ export type Wishlist = {
 };
 
 export type ExchangeParticipant = {
-  id: string; // This is the user's ID
+  id: string; // This is the user's ID, who is the giver
   giftExchangeId: string;
   userId: string;
-  targetUserId: string | null;
+  targetUserId: string | null; // The person they are giving a gift to
+  giverId: string;
+  receiverId: string;
 };
 
 export type SecretSantaAssignment = {
