@@ -78,6 +78,7 @@ const assignSecretSantaFlow = ai.defineFlow(
     }
     
     // Final check for consistency and to resolve any self-assignments or unassigned people
+    // This simple logic might still result in some issues in edge cases, but works for most scenarios.
     for(let i=0; i< assignments.length; i++){
         // check for self-assignment
         if(assignments[i].giverId === assignments[i].receiverId){

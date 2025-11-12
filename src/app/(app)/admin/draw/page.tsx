@@ -35,13 +35,15 @@ export default function AdminDrawPage() {
       });
       
       if (result && result.assignments) {
+        // Write each assignment to Firestore from the client
         for (const assignment of result.assignments) {
             if(assignment.giverId && assignment.receiverId) {
                 const participantRef = doc(firestore, `giftExchanges/${exchange.id}/participants/${assignment.giverId}`);
+                // Use setDocumentNonBlocking as it was intended, from the client.
                 setDocumentNonBlocking(participantRef, {
                     userId: assignment.giverId,
                     giftExchangeId: exchange.id,
-                    id: assignment.giverId,
+                    id: assignment.giverId, // The participant's ID is their user ID
                     targetUserId: assignment.receiverId
                 }, { merge: true });
             }
@@ -53,7 +55,8 @@ export default function AdminDrawPage() {
 
     } catch (error) {
       console.error("Draw error:", error);
-      toast({ variant: "destructive", title: "Error en el sorteo", description: "No se pudo completar la asignación." });
+      const errorMessage = error instanceof Error ? error.message : "No se pudo completar la asignación.";
+      toast({ variant: "destructive", title: "Error en el sorteo", description: errorMessage });
     } finally {
       setIsDrawing(false);
     }
