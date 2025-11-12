@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview A flow to assign Secret Santa pairs.
+ * @fileOverview A flow to assign Secret Santa pairs and save them to Firestore.
  *
  * - assignSecretSanta - A function that takes user IDs and assigns pairs.
  * - AssignSecretSantaInput - The input type for the assignSecret-santa function.
@@ -10,6 +10,14 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import * as admin from 'firebase-admin';
+
+// Initialize Firebase Admin SDK if not already initialized
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+const firestore = admin.firestore();
+
 
 const AssignSecretSantaInputSchema = z.object({
   userIds: z.array(z.string()).describe('A list of user IDs to be paired up.'),
@@ -24,7 +32,8 @@ const AssignmentSchema = z.object({
 export type Assignment = z.infer<typeof AssignmentSchema>;
 
 const AssignSecretSantaOutputSchema = z.object({
-  assignments: z.array(AssignmentSchema).describe('The list of assignments made.'),
+  success: z.boolean(),
+  message: z.string(),
 });
 export type AssignSecretSantaOutput = z.infer<typeof AssignSecretSantaOutputSchema>;
 
@@ -39,11 +48,10 @@ const assignSecretSantaFlow = ai.defineFlow(
     inputSchema: AssignSecretSantaInputSchema,
     outputSchema: AssignSecretSantaOutputSchema,
   },
-  async ({ userIds }) => {
+  async ({ userIds, exchangeId }) => {
     // Basic validation
     if (userIds.length < 2) {
-      // Not throwing an error, just returning no assignments
-      return { assignments: [] };
+      return { success: false, message: "Se necesitan al menos 2 participantes." };
     }
 
     // --- The Draw Logic ---
@@ -64,35 +72,63 @@ const assignSecretSantaFlow = ai.defineFlow(
         if (giverId !== receiverId && !assignedReceivers.has(receiverId)) {
           assignments.push({ giverId, receiverId });
           assignedReceivers.add(receiverId);
-          // Efficiently remove the used receiver by swapping with the last element and popping
-          [receivers[i], receivers[receivers.length-1]] = [receivers[receivers.length-1], receivers[i]];
-          receivers.pop();
+          receivers.splice(i, 1);
           found = true;
           break;
         }
       }
       if (!found) {
-        // This edge case can happen if the only person left to be a receiver is the giver themself
-        // We'll try to resolve this after the main loop
+        // Handle the case where a user is left and can only be assigned to themself
+        const remainingReceiver = receivers.find(r => !assignedReceivers.has(r));
+        if (remainingReceiver) {
+           // This is a tricky situation. Find someone to swap with.
+           // Find an assignment where the receiver is not the current giver
+           const swapIndex = assignments.findIndex(a => a.receiverId !== giverId);
+           if (swapIndex !== -1) {
+             const tempReceiver = assignments[swapIndex].receiverId;
+             assignments[swapIndex].receiverId = remainingReceiver;
+             assignments.push({ giverId, receiverId: tempReceiver });
+             assignedReceivers.add(remainingReceiver);
+           } else {
+             // Highly unlikely edge case, but we'll assign null for now
+             assignments.push({ giverId, receiverId: null });
+           }
+        } else {
+          assignments.push({ giverId, receiverId: null });
+        }
       }
     }
     
-    // Final check for consistency and to resolve any self-assignments or unassigned people
-    // This simple logic might still result in some issues in edge cases, but works for most scenarios.
-    for(let i=0; i< assignments.length; i++){
-        // check for self-assignment
-        if(assignments[i].giverId === assignments[i].receiverId){
-            // swap with the next person's receiver, if it's not the same person
+    // Final check for self-assignments (can happen in small groups)
+    for (let i = 0; i < assignments.length; i++) {
+        if (assignments[i].giverId === assignments[i].receiverId) {
+            // Swap with the next person's receiver
             const nextIndex = (i + 1) % assignments.length;
-            if(assignments[nextIndex].receiverId !== assignments[i].giverId) {
-                [assignments[i].receiverId, assignments[nextIndex].receiverId] = [assignments[nextIndex].receiverId, assignments[i].receiverId];
-            }
+            const temp = assignments[i].receiverId;
+            assignments[i].receiverId = assignments[nextIndex].receiverId;
+            assignments[nextIndex].receiverId = temp;
         }
     }
-
-
-    // The flow now only returns the calculated assignments.
-    // The client will be responsible for writing them to Firestore.
-    return { assignments };
+    
+    // --- Firestore Write Logic ---
+    try {
+      const batch = firestore.batch();
+      for (const assignment of assignments) {
+        if (assignment.giverId && assignment.receiverId) {
+          const participantRef = firestore.doc(`giftExchanges/${exchangeId}/participants/${assignment.giverId}`);
+          batch.set(participantRef, {
+            userId: assignment.giverId,
+            giftExchangeId: exchangeId,
+            id: assignment.giverId,
+            targetUserId: assignment.receiverId,
+          }, { merge: true });
+        }
+      }
+      await batch.commit();
+      return { success: true, message: "Sorteo realizado y guardado con éxito." };
+    } catch (error: any) {
+        console.error("Firestore batch write error:", error);
+        return { success: false, message: `Error al guardar en la base de datos: ${error.message}` };
+    }
   }
 );

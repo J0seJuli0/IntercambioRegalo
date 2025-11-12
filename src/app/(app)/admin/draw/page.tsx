@@ -1,8 +1,8 @@
 
 'use client';
 import { useState } from "react";
-import { useCollection, useFirestore, setDocumentNonBlocking } from "@/firebase";
-import { collection, doc } from "firebase/firestore";
+import { useCollection, useFirestore } from "@/firebase";
+import { collection } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -34,23 +34,10 @@ export default function AdminDrawPage() {
         exchangeId: exchange.id
       });
       
-      if (result && result.assignments) {
-        // Write each assignment to Firestore from the client
-        for (const assignment of result.assignments) {
-            if(assignment.giverId && assignment.receiverId) {
-                const participantRef = doc(firestore, `giftExchanges/${exchange.id}/participants/${assignment.giverId}`);
-                // Use setDocumentNonBlocking as it was intended, from the client.
-                setDocumentNonBlocking(participantRef, {
-                    userId: assignment.giverId,
-                    giftExchangeId: exchange.id,
-                    id: assignment.giverId, // The participant's ID is their user ID
-                    targetUserId: assignment.receiverId
-                }, { merge: true });
-            }
-        }
-        toast({ title: "¡Sorteo Realizado!", description: "Las asignaciones se han completado. Los usuarios pueden refrescar su dashboard." });
+      if (result && result.success) {
+        toast({ title: "¡Sorteo Realizado!", description: result.message });
       } else {
-        throw new Error("El sorteo no devolvió asignaciones.");
+        throw new Error(result.message || "El sorteo no se completó correctamente.");
       }
 
     } catch (error) {
