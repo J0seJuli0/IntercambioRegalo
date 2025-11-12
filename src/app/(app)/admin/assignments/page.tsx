@@ -15,20 +15,25 @@ export default function AssignmentsPage() {
 
   const exchange = { id: "global-exchange" };
 
-  // 1. Fetch all assignments for the exchange
   const assignmentsQuery = useMemoFirebase(
-    () => collection(firestore, `giftExchanges/${exchange.id}/participants`),
+    () => {
+      if (!firestore) return null;
+      return collection(firestore, `giftExchanges/${exchange.id}/participants`);
+    },
     [firestore, exchange.id]
   );
   const { data: assignments, isLoading: isLoadingAssignments } = useCollection<ExchangeParticipant>(assignmentsQuery);
 
-  // 2. Fetch all users to map IDs to names
-  const usersQuery = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const usersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'users');
+  }, [firestore]);
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
-  // 3. Create a map for quick user lookup
   const userMap = useMemo(() => {
-    if (!allUsers) return new Map();
+    if (!allUsers) {
+      return new Map<string, User>();
+    }
     return new Map(allUsers.map(user => [user.id, user]));
   }, [allUsers]);
 
@@ -43,7 +48,6 @@ export default function AssignmentsPage() {
     if (!user) return '?';
     return user.name ? user.name.charAt(0) : user.email.charAt(0);
   }
-
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -101,7 +105,7 @@ export default function AssignmentsPage() {
                   const giver = userMap.get(assignment.giverId);
                   const receiver = userMap.get(assignment.receiverId);
 
-                  if (!giver || !receiver) return null; // Skip if user data not loaded yet
+                  if (!giver || !receiver) return null;
 
                   return (
                     <TableRow key={assignment.id}>
@@ -109,7 +113,7 @@ export default function AssignmentsPage() {
                         <div className="flex items-center gap-3">
                           <Avatar>
                             <AvatarImage src={getAvatar(giver) || undefined} />
-                            <AvatarFallback>{getFallback(giver)}</AvatarFallback>
+                            <AvatarFallback>{getFallback(giver)}</Fallback>
                           </Avatar>
                           <div>
                             <div className="font-medium">{giver.name}</div>
