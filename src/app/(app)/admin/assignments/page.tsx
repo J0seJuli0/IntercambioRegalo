@@ -1,6 +1,6 @@
 'use client';
 import { useCollection, useFirestore } from "@/firebase";
-import { collection, collectionGroup, query } from "firebase/firestore";
+import { collection } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ExchangeParticipant, User } from "@/lib/types";
 import { ArrowRight, Users } from "lucide-react";
+import { useMemo } from "react";
 
 export default function AssignmentsPage() {
   const firestore = useFirestore();
@@ -26,7 +27,7 @@ export default function AssignmentsPage() {
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   // 3. Create a map for quick user lookup
-  const userMap = useMemoFirebase(() => {
+  const userMap = useMemo(() => {
     if (!allUsers) return new Map();
     return new Map(allUsers.map(user => [user.id, user]));
   }, [allUsers]);
@@ -98,7 +99,7 @@ export default function AssignmentsPage() {
               ) : assignments && assignments.length > 0 ? (
                 assignments.map((assignment) => {
                   const giver = userMap.get(assignment.giverId);
-                  const receiver = userMap.get(assignment.receiverId as string); // Cast because we know it exists here
+                  const receiver = userMap.get(assignment.receiverId);
 
                   if (!giver || !receiver) return null; // Skip if user data not loaded yet
 
@@ -107,7 +108,7 @@ export default function AssignmentsPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar>
-                            <AvatarImage src={getAvatar(giver)} />
+                            <AvatarImage src={getAvatar(giver) || undefined} />
                             <AvatarFallback>{getFallback(giver)}</AvatarFallback>
                           </Avatar>
                           <div>
@@ -120,7 +121,7 @@ export default function AssignmentsPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar>
-                            <AvatarImage src={getAvatar(receiver)} />
+                            <AvatarImage src={getAvatar(receiver) || undefined} />
                             <AvatarFallback>{getFallback(receiver)}</Fallback>
                           </Avatar>
                           <div>
