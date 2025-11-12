@@ -1,19 +1,23 @@
+
 'use server';
 /**
- * @fileOverview A flow to assign Secret Santa pairs.
+ * @fileOverview A flow to assign Secret Santa pairs using firebase-admin.
  *
  * - assignSecretSanta - A function that takes user IDs and assigns pairs.
- * - AssignSecretSantaInput - The input type for the assignSecretSanta function.
+ * - AssignSecretSantaInput - The input type for the assignSecret-santa function.
  * - AssignSecretSantaOutput - The return type for the assignSecretSanta function.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import { getFirestore, collection, addDoc, doc, setDoc, getDocs, query } from 'firebase/firestore';
-import { initializeFirebase } from '@/firebase';
+import * as admin from 'firebase-admin';
 
-// Initialize Firebase Admin for server-side operations
-const { firestore } = initializeFirebase();
+// Initialize Firebase Admin SDK if not already initialized
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+const firestore = admin.firestore();
+
 
 const AssignSecretSantaInputSchema = z.object({
   userIds: z.array(z.string()).describe('A list of user IDs to be paired up.'),
@@ -51,75 +55,66 @@ const assignSecretSantaFlow = ai.defineFlow(
     }
 
     // --- The Draw Logic ---
-    const givers = [...userIds];
-    const receivers = [...userIds];
+    let givers = [...userIds];
+    let receivers = [...userIds];
 
-    // Shuffle both arrays to ensure randomness
-    for (let i = givers.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [givers[i], givers[j]] = [givers[j], givers[i]];
-        [receivers[i], receivers[j]] = [receivers[j], receivers[i]];
-    }
-    
-    const assignments: Assignment[] = [];
-    const assignedReceivers = new Set<string>();
+    // Shuffle arrays to ensure randomness
+    givers = givers.sort(() => Math.random() - 0.5);
+    receivers = receivers.sort(() => Math.random() - 0.5);
+
+    let assignments: Assignment[] = [];
+    let assignedReceivers = new Set<string>();
 
     for (const giverId of givers) {
-        let potentialReceiver: string | undefined;
-
-        for (let i = 0; i < receivers.length; i++) {
-            const receiverId = receivers[i];
-            // Find a receiver who is not the giver and has not been assigned yet
-            if (receiverId !== giverId && !assignedReceivers.has(receiverId)) {
-                potentialReceiver = receiverId;
-                break;
-            }
+      let found = false;
+      for (let i = 0; i < receivers.length; i++) {
+        const receiverId = receivers[i];
+        if (giverId !== receiverId && !assignedReceivers.has(receiverId)) {
+          assignments.push({ giverId, receiverId });
+          assignedReceivers.add(receiverId);
+          // swap the used receiver with the last element and pop it for efficiency
+          [receivers[i], receivers[receivers.length-1]] = [receivers[receivers.length-1], receivers[i]];
+          receivers.pop();
+          found = true;
+          break;
         }
-        
-        if (potentialReceiver) {
-             assignments.push({ giverId, receiverId: potentialReceiver });
-             assignedReceivers.add(potentialReceiver);
-        } else {
-            // This can happen if the last remaining receiver is the giver themselves,
-            // or if we're at the end with an odd number of users.
-             assignments.push({ giverId, receiverId: null });
-        }
-    }
-    
-    // Fallback for the last person if they are assigned to themselves
-    // This is a simple circular shift to fix the last assignment if it's self-assigned
-    const lastAssignment = assignments[assignments.length-1];
-    if(lastAssignment && lastAssignment.giverId === lastAssignment.receiverId) {
-        // Swap with the first person's receiver
-        const firstReceiver = assignments[0].receiverId;
-        assignments[assignments.length - 1].receiverId = firstReceiver;
-        assignments[0].receiverId = lastAssignment.giverId;
+      }
+      if (!found) {
+        // This might happen if the only remaining receiver is the giver itself
+        assignments.push({ giverId, receiverId: null });
+      }
     }
 
-
-    // --- Save Assignments to Firestore ---
-    const exchangeParticipantsRef = collection(firestore, `giftExchanges/${exchangeId}/participants`);
+    // Handle the case where the last person might not have a pair or is self-assigned
+    const unassignedGivers = givers.filter(g => !assignments.some(a => a.giverId === g));
+    for (const giverId of unassignedGivers) {
+      // Find someone who is not already a giver's receiver
+      const possibleReceivers = userIds.filter(uid => uid !== giverId && !assignedReceivers.has(uid));
+      if(possibleReceivers.length > 0){
+        const receiverId = possibleReceivers[Math.floor(Math.random() * possibleReceivers.length)];
+        assignments.push({ giverId, receiverId });
+        assignedReceivers.add(receiverId);
+      } else {
+        assignments.push({ giverId, receiverId: null });
+      }
+    }
     
-    // Clear previous assignments for this exchange
-    const q = query(exchangeParticipantsRef);
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach(async (document) => {
-        await setDoc(document.ref, { targetUserId: null }, { merge: true });
-    });
-
-
+    // --- Save Assignments to Firestore using Admin SDK ---
+    const batch = firestore.batch();
+    
     // Create new assignments
     for (const assignment of assignments) {
-        if (assignment.receiverId) {
-            const participantRef = doc(firestore, `giftExchanges/${exchangeId}/participants`, assignment.giverId);
-             // Using setDoc with merge to either create or update the participant doc
-            await setDoc(participantRef, {
-                userId: assignment.giverId,
-                giftExchangeId: exchangeId,
-                targetUserId: assignment.receiverId
-            }, { merge: true });
-        }
+      if (assignment.receiverId) {
+        const participantRef = firestore.doc(`giftExchanges/${exchangeId}/participants/${assignment.giverId}`);
+        batch.set(participantRef, {
+            userId: assignment.giverId,
+            giftExchangeId: exchangeId,
+            targetUserId: assignment.receiverId
+        }, { merge: true });
+      }
     }
+
+    await batch.commit();
 
     return { assignments };
   }
