@@ -26,6 +26,13 @@ export type Wishlist = {
   items: Gift[];
 };
 
+export type ExchangeParticipant = {
+  id: string; // This is the user's ID
+  giftExchangeId: string;
+  userId: string;
+  targetUserId: string | null;
+};
+
 export type SecretSantaAssignment = {
   giverId: string;
   receiverId: string;

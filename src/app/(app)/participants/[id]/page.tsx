@@ -1,7 +1,7 @@
 'use client';
 import { WishlistClientPage } from "@/components/wishlist/WishlistClientPage";
 import { notFound, useParams } from "next/navigation";
-import { useDoc, useFirestore } from "@/firebase";
+import { useDoc, useFirestore, useUser } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
 import { User } from "@/lib/types";
@@ -9,6 +9,7 @@ import Loading from "../../loading";
 
 export default function ParticipantWishlistPage() {
   const params = useParams();
+  const { user: currentUser } = useUser();
   const id = params.id as string;
   const firestore = useFirestore();
   
@@ -26,6 +27,8 @@ export default function ParticipantWishlistPage() {
   if (!user || error) {
     notFound();
   }
+  
+  const isCurrentUserPage = currentUser?.uid === user.id;
 
-  return <WishlistClientPage user={user} isCurrentUser={false} />;
+  return <WishlistClientPage user={user} isCurrentUser={isCurrentUserPage} />;
 }

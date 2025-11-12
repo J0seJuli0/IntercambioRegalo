@@ -1,8 +1,8 @@
 'use client';
 import Link from "next/link";
-import { ArrowRight, Gift, Users, Star, CalendarClock } from "lucide-react";
-import { useUser, useFirestore, useCollection } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { ArrowRight, Gift, Users, Star, CalendarClock, PartyPopper } from "lucide-react";
+import { useUser, useFirestore, useCollection, useDoc } from "@/firebase";
+import { collection, doc } from "firebase/firestore";
 import { useMemoFirebase } from "@/firebase/provider";
 import {
   Card,
@@ -15,19 +15,48 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Gift as GiftType } from "@/lib/types";
+import type { Gift as GiftType, User, ExchangeParticipant } from "@/lib/types";
 import { Progress } from "@/components/ui/progress";
 import CountdownTimer from "@/components/dashboard/CountdownTimer";
+import { assignSecretSanta } from "@/ai/flows/assign-secret-santa";
+import { runFlow } from "@genkit-ai/next/client";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
+
 
 export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
+  const [isDrawing, setIsDrawing] = useState(false);
 
-  // TODO: Replace with real assignment data
-  const assignment = null; 
-  const receiver = null;
-  // TODO: Replace with real exchange data
-  const exchange = { name: "Intercambio Navideño 2025", budget: 50 };
+  // --- Data Fetching ---
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userProfile } = useDoc<User>(userDocRef);
+
+  const exchange = { id: "global-exchange", name: "Intercambio Navideño 2025", budget: 50 };
+
+  const assignmentDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, `giftExchanges/${exchange.id}/participants`, user.uid);
+  }, [firestore, user]);
+
+  const { data: assignment, isLoading: isAssignmentLoading } = useDoc<ExchangeParticipant>(assignmentDocRef);
+
+  const receiverDocRef = useMemoFirebase(() => {
+    if (!assignment?.targetUserId) return null;
+    return doc(firestore, 'users', assignment.targetUserId);
+  }, [firestore, assignment]);
+
+  const { data: receiver, isLoading: isReceiverLoading } = useDoc<User>(receiverDocRef);
+
+  const allUsersQuery = useMemoFirebase(() => collection(firestore, 'users'), [firestore]);
+  const { data: allUsers } = useCollection<User>(allUsersQuery);
 
   const wishlistQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -35,24 +64,56 @@ export default function DashboardPage() {
   }, [firestore, user]);
 
   const { data: userWishlist, isLoading: isWishlistLoading } = useCollection<GiftType>(wishlistQuery);
+  
+  const receiverWishlistQuery = useMemoFirebase(() => {
+    if (!receiver) return null;
+    return collection(firestore, `users/${receiver.id}/wishlistItems`);
+  }, [firestore, receiver]);
 
-  const purchasedItems = userWishlist?.filter(item => item.isPurchased).length || 0;
+  const { data: receiverWishlist } = useCollection<GiftType>(receiverWishlistQuery);
+
+
+  // --- Calculations ---
+
   const totalItems = userWishlist?.length || 0;
-  const progress = totalItems > 0 ? (purchasedItems / totalItems) * 100 : 0;
+  const purchasedItemsCount = receiverWishlist?.filter(item => item.isPurchased).length || 0;
+  const totalReceiverItems = receiverWishlist?.length || 0;
+  const purchaseProgress = totalReceiverItems > 0 ? (purchasedItemsCount / totalReceiverItems) * 100 : 0;
   
   const getNextDrawDate = () => {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    let drawDate = new Date(currentYear, 11, 1); // December 1st
+    let drawDate = new Date(now.getFullYear(), 11, 1); // December 1st
     if (now > drawDate) {
-      drawDate = new Date(currentYear + 1, 11, 1);
+      drawDate = new Date(now.getFullYear() + 1, 11, 1);
     }
     return drawDate;
   };
 
   const drawDate = getNextDrawDate();
 
-  if (isUserLoading) {
+  // --- Handlers ---
+  
+  const handleDraw = async () => {
+    if (!allUsers || allUsers.length < 2) {
+      toast({ variant: "destructive", title: "No hay suficientes usuarios", description: "Se necesitan al menos 2 participantes para el sorteo." });
+      return;
+    }
+    setIsDrawing(true);
+    try {
+      await runFlow(assignSecretSanta, { 
+        userIds: allUsers.map(u => u.id),
+        exchangeId: exchange.id
+      });
+      toast({ title: "¡Sorteo Realizado!", description: "Las asignaciones se han completado. ¡Refresca para ver los resultados!" });
+    } catch (error) {
+      console.error("Draw error:", error);
+      toast({ variant: "destructive", title: "Error en el sorteo", description: "No se pudo completar la asignación." });
+    } finally {
+      setIsDrawing(false);
+    }
+  };
+
+  if (isUserLoading || isAssignmentLoading || isReceiverLoading) {
     return (
        <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
         <Skeleton className="h-10 w-1/2" />
@@ -70,7 +131,7 @@ export default function DashboardPage() {
   }
   
   if (!user) {
-    return null;
+    return null; // Should be redirected by layout
   }
 
   return (
@@ -79,6 +140,12 @@ export default function DashboardPage() {
         <h2 className="text-3xl font-bold tracking-tight font-headline">
           ¡Hola, {user.displayName || user.email}! 👋
         </h2>
+         {userProfile?.tipo_user === 2 && (
+            <Button onClick={handleDraw} disabled={isDrawing}>
+              {isDrawing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PartyPopper className="mr-2 h-4 w-4" />}
+              Realizar Sorteo
+            </Button>
+          )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -116,7 +183,7 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="text-2xl font-bold">{totalItems} {totalItems === 1 ? 'Regalo' : 'Regalos'}</div>
                 <p className="text-xs text-muted-foreground">
-                  Tienes {totalItems - purchasedItems} regalos pendientes.
+                  Tienes {totalItems} regalos en tu lista.
                 </p>
               </CardContent>
             </Card>
@@ -126,9 +193,8 @@ export default function DashboardPage() {
                 <Star className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                {/* TODO: Update with real progress */}
-                <div className="text-2xl font-bold">0 de 0</div>
-                <Progress value={0} className="mt-2 h-2" />
+                <div className="text-2xl font-bold">{purchasedItemsCount} de {totalReceiverItems}</div>
+                <Progress value={purchaseProgress} className="mt-2 h-2" />
               </CardContent>
             </Card>
         </div>
@@ -146,7 +212,7 @@ export default function DashboardPage() {
             {receiver ? (
               <>
                 <Avatar className="h-16 w-16 border-2 border-primary">
-                  <AvatarImage src={`https://picsum.photos/seed/${receiver.id}/100/100`} data-ai-hint="person face" />
+                  <AvatarImage src={receiver.profilePictureUrl || `https://picsum.photos/seed/${receiver.id}/100/100`} data-ai-hint="person face" />
                   <AvatarFallback>{receiver.name.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div>

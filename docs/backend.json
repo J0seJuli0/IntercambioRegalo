@@ -151,8 +151,7 @@
       "required": [
         "id",
         "giftExchangeId",
-        "userId",
-        "targetUserId"
+        "userId"
       ]
     },
     "ChatMessage": {

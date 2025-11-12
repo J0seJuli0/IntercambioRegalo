@@ -57,7 +57,7 @@ service cloud.firestore {
         return resource != null;
       }
 
-      allow get: if isOwner(userId);
+      allow get: if isOwner(userId) || isAdmin();
       allow list: if isSignedIn();
       allow write: if (isCreating() && (isAdmin() || request.resource.data.id == userId)) || (isUpdating() && isOwner(userId));
       allow delete: if isOwner(userId) && isUpdating();
@@ -85,26 +85,27 @@ service cloud.firestore {
      */
     match /giftExchanges/{giftExchangeId} {
       allow get: if true;
-      allow list: if true; // TODO: Restrict listing to members of the exchange
-      allow create: if isSignedIn(); // TODO: Add conditions for creating a gift exchange
-      allow update: if false; // TODO: Add role-based update permissions (e.g., admin of the exchange)
-      allow delete: if false; // TODO: Add role-based delete permissions (e.g., admin of the exchange)
+      allow list: if true; 
+      allow create: if isSignedIn(); 
+      allow update: if false; 
+      allow delete: if false; 
     }
 
     /**
      * @description Protects user participation data in a gift exchange.
      * @path /giftExchanges/{giftExchangeId}/participants/{exchangeParticipantId}
      */
-    match /giftExchanges/{giftExchangeId}/participants/{exchangeParticipantId} {
-      function isParticipant(giftExchangeId, userId) {
-        return exists(/databases/$(database)/documents/giftExchanges/$(giftExchangeId)/participants/$(userId));
-      }
+    match /giftExchanges/{giftExchangeId}/participants/{participantId} {
+      // A user can see their own assignment
+      allow get: if isSignedIn() && isOwner(participantId);
+      
+      // Admins can read all assignments to manage the draw
+      allow list: if isAdmin();
+      
+      // Admin can create and update assignments during the draw
+      allow write: if isAdmin();
 
-      allow get: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid);
-      allow list: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid);
-      allow create: if isSignedIn() && request.resource.data.giftExchangeId == giftExchangeId && request.auth.uid == request.resource.data.userId;
-      allow update: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid) && request.resource.data.giftExchangeId == giftExchangeId;
-      allow delete: if isSignedIn() && isParticipant(giftExchangeId, request.auth.uid) && request.resource.data.giftExchangeId == giftExchangeId;
+      allow delete: if isAdmin();
     }
 
     /**
