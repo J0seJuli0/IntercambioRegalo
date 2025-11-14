@@ -18,6 +18,7 @@ export default function AssignmentsPage() {
   const assignmentsQuery = useMemoFirebase(
     () => {
       if (!firestore) return null;
+      // Correctly query the subcollection
       return collection(firestore, `giftExchanges/${exchange.id}/participants`);
     },
     [firestore, exchange.id]
@@ -105,7 +106,11 @@ export default function AssignmentsPage() {
                   const giver = userMap.get(assignment.giverId);
                   const receiver = userMap.get(assignment.receiverId);
 
-                  if (!giver || !receiver) return null;
+                  // Only render if both giver and receiver are found in the map
+                  if (!giver || !receiver) {
+                    console.warn(`Could not find users for assignment:`, assignment);
+                    return null;
+                  }
 
                   return (
                     <TableRow key={assignment.id}>
