@@ -33,30 +33,22 @@ export default function AdminDrawPage() {
     if (participantCount < 2) {
       return [];
     }
+    
+    // Create a mutable copy for shuffling
+    let mutableParticipants = [...participants];
 
-    // 2. Handle odd number of participants
-    if (participantCount % 2 !== 0) {
-      // Remove one random person to make the count even. That person won't participate.
-      const excludedIndex = Math.floor(Math.random() * participantCount);
-      participants.splice(excludedIndex, 1);
-       toast({
-        title: "Número Impar de Participantes",
-        description: `Un participante ha sido excluido para poder realizar el sorteo.`,
-      });
-    }
-
-    // 3. Shuffle the participants array
-    for (let i = participants.length - 1; i > 0; i--) {
+    // 2. Shuffle the participants array to ensure randomness
+    for (let i = mutableParticipants.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [participants[i], participants[j]] = [participants[j], participants[i]];
+      [mutableParticipants[i], mutableParticipants[j]] = [mutableParticipants[j], mutableParticipants[i]];
     }
 
-    // 4. Create assignments in a circle (1 -> 2, 2 -> 3, ..., n -> 1)
+    // 3. Create assignments in a circle (1 -> 2, 2 -> 3, ..., n -> 1)
     // This guarantees no one gets themselves.
     const assignments: Assignment[] = [];
-    for (let i = 0; i < participants.length; i++) {
-      const giver = participants[i];
-      const receiver = participants[(i + 1) % participants.length]; // The next person in the circle
+    for (let i = 0; i < mutableParticipants.length; i++) {
+      const giver = mutableParticipants[i];
+      const receiver = mutableParticipants[(i + 1) % mutableParticipants.length]; // The next person in the circle
       assignments.push({
         giverId: giver.id,
         receiverId: receiver.id,
@@ -83,13 +75,15 @@ export default function AdminDrawPage() {
       for (const assignment of assignments) {
         if (assignment.giverId && assignment.receiverId) {
            const participantRef = doc(firestore, `giftExchanges/${exchange.id}/participants/${assignment.giverId}`);
+           // Using the corrected ExchangeParticipant type structure
            setDocumentNonBlocking(participantRef, {
-             userId: assignment.giverId,
+             id: assignment.giverId,
              giftExchangeId: exchange.id,
-             id: assignment.giverId, // The doc ID is the giver's ID
-             giverId: assignment.giverId, // Explicitly add giverId
-             receiverId: assignment.receiverId, // Explicitly add receiverId
-             targetUserId: assignment.receiverId, // Keep for compatibility with dashboard
+             giverId: assignment.giverId,
+             receiverId: assignment.receiverId,
+             // Keep these for backwards compatibility if needed, but the new ones are primary
+             userId: assignment.giverId,
+             targetUserId: assignment.receiverId,
            }, { merge: true });
         }
       }

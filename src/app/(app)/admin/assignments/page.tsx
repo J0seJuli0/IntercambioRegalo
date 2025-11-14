@@ -100,7 +100,7 @@ export default function AssignmentsPage() {
                     </TableCell>
                   </TableRow>
                 ))
-              ) : assignments && assignments.length > 0 ? (
+              ) : assignments && assignments.length > 0 && userMap.size > 0 ? (
                 assignments.map((assignment) => {
                   const giver = userMap.get(assignment.giverId);
                   const receiver = userMap.get(assignment.receiverId);
@@ -140,7 +140,7 @@ export default function AssignmentsPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={3} className="h-24 text-center">
-                    Aún no se ha realizado ningún sorteo.
+                    Aún no se ha realizado ningún sorteo o no hay participantes.
                   </TableCell>
                 </TableRow>
               )}

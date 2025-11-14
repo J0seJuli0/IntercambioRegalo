@@ -29,10 +29,11 @@ export type Wishlist = {
 export type ExchangeParticipant = {
   id: string; // This is the user's ID, who is the giver
   giftExchangeId: string;
+  giverId: string; // This is the user ID of the person giving the gift
+  receiverId: string; // This is the user ID of the person receiving the gift
+  // The following fields might be deprecated but kept for compatibility for now
   userId: string;
-  targetUserId: string | null; // The person they are giving a gift to
-  giverId: string;
-  receiverId: string;
+  targetUserId: string | null;
 };
 
 export type SecretSantaAssignment = {
