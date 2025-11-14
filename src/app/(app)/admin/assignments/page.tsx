@@ -103,12 +103,11 @@ export default function AssignmentsPage() {
                 ))
               ) : assignments && assignments.length > 0 && userMap.size > 0 ? (
                 assignments.map((assignment) => {
-                  const giver = userMap.get(assignment.giverId);
-                  const receiver = userMap.get(assignment.receiverId);
+                  const giver = userMap.get(assignment.userId);
+                  const receiver = assignment.targetUserId ? userMap.get(assignment.targetUserId) : undefined;
 
                   // Only render if both giver and receiver are found in the map
                   if (!giver || !receiver) {
-                    console.warn(`Could not find users for assignment:`, assignment);
                     return null;
                   }
 
