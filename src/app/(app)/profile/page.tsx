@@ -4,10 +4,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from "@/firebase";
-import { updateProfile } from "firebase/auth";
+import { updateProfile, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, User as UserIcon, Image as ImageIcon, Link as LinkIcon } from "lucide-react";
+import { Loader2, User as UserIcon, Image as ImageIcon, Link as LinkIcon, Lock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +32,15 @@ const profileSchema = z.object({
   profilePictureUrl: z.string().optional().or(z.literal('')),
 });
 
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1, "La contraseña actual es requerida."),
+  newPassword: z.string().min(6, "La nueva contraseña debe tener al menos 6 caracteres."),
+  confirmPassword: z.string()
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Las contraseñas no coinciden.",
+  path: ["confirmPassword"],
+});
+
 export default function ProfilePage() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
@@ -43,7 +52,7 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
-  const form = useForm<z.infer<typeof profileSchema>>({
+  const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: "",
@@ -51,6 +60,16 @@ export default function ProfilePage() {
       profilePictureUrl: "",
     },
   });
+
+  const passwordForm = useForm<z.infer<typeof passwordSchema>>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: ""
+    }
+  });
+
 
   useEffect(() => {
     if (user) {
@@ -64,14 +83,14 @@ export default function ProfilePage() {
             email: user.email || "",
             profilePictureUrl: userData.profilePictureUrl || user.photoURL || "",
           };
-          form.reset(initialValues);
+          profileForm.reset(initialValues);
           setAvatarPreview(userData.profilePictureUrl || user.photoURL);
         }
        });
 
        return () => unsub();
     }
-  }, [user, form, firestore]);
+  }, [user, profileForm, firestore]);
   
   const handleProfileUpdate = async (name: string, photoURL?: string) => {
      if (!user || !auth.currentUser) return;
@@ -95,11 +114,11 @@ export default function ProfilePage() {
   }
 
   const handleUrlSubmit = async () => {
-    const url = form.getValues("profilePictureUrl");
+    const url = profileForm.getValues("profilePictureUrl");
     if (url && z.string().url().safeParse(url).success) {
       setIsUploading(true);
       try {
-        await handleProfileUpdate(form.getValues("name"), url);
+        await handleProfileUpdate(profileForm.getValues("name"), url);
         setAvatarPreview(url);
         toast({
           title: "¡Avatar actualizado!",
@@ -111,7 +130,7 @@ export default function ProfilePage() {
         setIsUploading(false);
       }
     } else {
-        form.setError("profilePictureUrl", { type: "manual", message: "Por favor, introduce una URL válida." });
+        profileForm.setError("profilePictureUrl", { type: "manual", message: "Por favor, introduce una URL válida." });
     }
   };
 
@@ -152,9 +171,9 @@ export default function ProfilePage() {
     try {
       const base64String = await toBase64(selectedFile);
       
-      await handleProfileUpdate(form.getValues("name"), base64String);
+      await handleProfileUpdate(profileForm.getValues("name"), base64String);
       setAvatarPreview(base64String);
-      form.setValue("profilePictureUrl", base64String);
+      profileForm.setValue("profilePictureUrl", base64String);
 
       toast({
         title: "¡Foto subida!",
@@ -178,8 +197,8 @@ export default function ProfilePage() {
   };
 
 
-  const onSubmit = async (values: z.infer<typeof profileSchema>) => {
-    if (form.formState.isSubmitting) return;
+  const onProfileSubmit = async (values: z.infer<typeof profileSchema>) => {
+    if (profileForm.formState.isSubmitting) return;
 
     try {
       await handleProfileUpdate(values.name);
@@ -195,6 +214,44 @@ export default function ProfilePage() {
       });
     }
   };
+
+  const onPasswordSubmit = async (values: z.infer<typeof passwordSchema>) => {
+    if (!auth.currentUser || !auth.currentUser.email) {
+      toast({ variant: "destructive", title: "Error", description: "No se encontró el usuario actual." });
+      return;
+    }
+    
+    try {
+      // 1. Re-authenticate user for security
+      const credential = EmailAuthProvider.credential(auth.currentUser.email, values.currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+
+      // 2. Update password
+      await updatePassword(auth.currentUser, values.newPassword);
+      
+      toast({
+        title: "¡Contraseña actualizada!",
+        description: "Tu contraseña ha sido cambiada exitosamente.",
+      });
+      passwordForm.reset();
+
+    } catch (error: any) {
+        let description = "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.";
+        if (error.code === 'auth/wrong-password') {
+            description = "La contraseña actual es incorrecta.";
+            passwordForm.setError("currentPassword", { type: "manual", message: description });
+        } else if (error.code === 'auth/weak-password') {
+            description = "La nueva contraseña es demasiado débil.";
+            passwordForm.setError("newPassword", { type: "manual", message: description });
+        }
+        console.error("Password Update Error:", error);
+        toast({
+            variant: "destructive",
+            title: "Error al cambiar la contraseña",
+            description: description,
+        });
+    }
+  };
   
   if (isUserLoading) {
     return <Loading />;
@@ -205,10 +262,16 @@ export default function ProfilePage() {
       <h2 className="text-3xl font-bold tracking-tight font-headline">
         Mi Perfil
       </h2>
-      <Form {...form}>
-        <div className="grid gap-6 md:grid-cols-3">
-            <Card className="md:col-span-2">
-              <form onSubmit={form.handleSubmit(onSubmit)}>
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="avatar">Avatar</TabsTrigger>
+          <TabsTrigger value="security">Seguridad</TabsTrigger>
+        </TabsList>
+        <TabsContent value="profile">
+          <Card>
+             <Form {...profileForm}>
+              <form onSubmit={profileForm.handleSubmit(onProfileSubmit)}>
                 <CardHeader>
                   <CardTitle>Información Personal</CardTitle>
                   <CardDescription>
@@ -218,7 +281,7 @@ export default function ProfilePage() {
                 <CardContent>
                   <div className="space-y-4">
                     <FormField
-                      control={form.control}
+                      control={profileForm.control}
                       name="name"
                       render={({ field }) => (
                         <FormItem>
@@ -231,7 +294,7 @@ export default function ProfilePage() {
                       )}
                     />
                     <FormField
-                      control={form.control}
+                      control={profileForm.control}
                       name="email"
                       render={({ field }) => (
                         <FormItem>
@@ -246,41 +309,44 @@ export default function ProfilePage() {
                   </div>
                 </CardContent>
                 <CardFooter className="border-t px-6 py-4">
-                  <Button type="submit" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="submit" disabled={profileForm.formState.isSubmitting}>
+                    {profileForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Guardar Cambios
                   </Button>
                 </CardFooter>
               </form>
+            </Form>
             </Card>
-            <Card>
-              <CardHeader>
+        </TabsContent>
+        <TabsContent value="avatar">
+           <Card>
+            <CardHeader>
                 <CardTitle>Foto de Perfil</CardTitle>
                 <CardDescription>Elige cómo te verán los demás.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-4">
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-4">
                 <div className="relative">
-                  {isUploading && (
+                {isUploading && (
                     <div className="absolute inset-0 bg-background/80 flex items-center justify-center rounded-full">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     </div>
-                  )}
-                  <Avatar className="h-32 w-32 border-4 border-primary/20">
+                )}
+                <Avatar className="h-32 w-32 border-4 border-primary/20">
                     {avatarPreview ? (
-                      <AvatarImage src={avatarPreview} alt="Foto de perfil" data-ai-hint="person face" />
+                    <AvatarImage src={avatarPreview} alt="Foto de perfil" data-ai-hint="person face" />
                     ) : null }
                     <AvatarFallback className="text-4xl">
-                      <UserIcon />
+                    <UserIcon />
                     </AvatarFallback>
-                  </Avatar>
+                </Avatar>
                 </div>
 
-                <Tabs defaultValue="upload" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
+                <Tabs defaultValue="upload" className="w-full max-w-sm">
+                <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="upload"><ImageIcon/> Subir</TabsTrigger>
                     <TabsTrigger value="url"><LinkIcon/> Enlace</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="upload" className="flex flex-col items-center gap-2 mt-4">
+                </TabsList>
+                <TabsContent value="upload" className="flex flex-col items-center gap-2 mt-4">
                     <Label htmlFor="picture" className="text-center text-sm text-muted-foreground">Sube una imagen desde tu dispositivo.</Label>
                     <Input id="picture" type="file" accept="image/*" onChange={handleFileSelect} className="text-xs" disabled={isUploading} ref={fileInputRef}/>
                     {selectedFile && (
@@ -289,30 +355,93 @@ export default function ProfilePage() {
                             Guardar Imagen
                         </Button>
                     )}
-                  </TabsContent>
-                  <TabsContent value="url" className="space-y-2 mt-4">
+                </TabsContent>
+                <TabsContent value="url" className="space-y-2 mt-4">
+                    <Form {...profileForm}>
                     <FormField
-                        control={form.control}
+                        control={profileForm.control}
                         name="profilePictureUrl"
                         render={({ field }) => (
-                          <FormItem>
+                            <FormItem>
                             <FormControl>
-                              <Input placeholder="https://ejemplo.com/imagen.png" {...field} />
+                                <Input placeholder="https://ejemplo.com/imagen.png" {...field} />
                             </FormControl>
                             <FormMessage />
-                          </FormItem>
+                            </FormItem>
                         )}
-                      />
+                        />
+                    </Form>
                     <Button onClick={handleUrlSubmit} className="w-full" disabled={isUploading}>
                         {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Guardar URL
                     </Button>
-                  </TabsContent>
+                </TabsContent>
                 </Tabs>
-              </CardContent>
+            </CardContent>
             </Card>
-        </div>
-      </Form>
+        </TabsContent>
+        <TabsContent value="security">
+             <Card>
+                <Form {...passwordForm}>
+                    <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}>
+                        <CardHeader>
+                            <CardTitle>Cambiar Contraseña</CardTitle>
+                            <CardDescription>Actualiza tu contraseña. Por seguridad, se te pedirá tu contraseña actual.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <FormField
+                                control={passwordForm.control}
+                                name="currentPassword"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Contraseña Actual</FormLabel>
+                                    <FormControl>
+                                    <Input type="password" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={passwordForm.control}
+                                name="newPassword"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nueva Contraseña</FormLabel>
+                                    <FormControl>
+                                    <Input type="password" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={passwordForm.control}
+                                name="confirmPassword"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Confirmar Nueva Contraseña</FormLabel>
+                                    <FormControl>
+                                    <Input type="password" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </CardContent>
+                        <CardFooter className="border-t px-6 py-4">
+                            <Button type="submit" disabled={passwordForm.formState.isSubmitting}>
+                                {passwordForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Cambiar Contraseña
+                            </Button>
+                        </CardFooter>
+                    </form>
+                </Form>
+             </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
+    
