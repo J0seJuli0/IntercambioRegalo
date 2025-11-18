@@ -4,8 +4,9 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { Plus, Trash2, Edit, Link as LinkIcon, DollarSign, Gift, User as UserIcon } from 'lucide-react';
 import { collection, doc } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/provider';
+import { notFound } from 'next/navigation';
 
 import type { Gift as GiftType, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -21,20 +22,37 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import Loading from '@/app/(app)/loading';
 
 type WishlistClientPageProps = {
-  user: User;
-  isCurrentUser: boolean;
+  userId: string;
 };
 
-export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPageProps) {
+export function WishlistClientPage({ userId }: WishlistClientPageProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { user: currentUser } = useUser();
+  const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
 
   const [isAddGiftOpen, setAddGiftOpen] = useState(false);
   const [editingGift, setEditingGift] = useState<GiftType | null>(null);
 
-  const wishlistCollectionRef = useMemoFirebase(() => collection(firestore, `users/${user.id}/wishlistItems`), [firestore, user.id]);
+  // Fetch the profile of the user whose wishlist is being viewed
+  const userDocRef = useMemoFirebase(() => {
+    if (!userId) return null;
+    return doc(firestore, 'users', userId);
+  }, [firestore, userId]);
+  const { data: user, isLoading: isUserLoading, error: userError } = useDoc<User>(userDocRef);
+
+  // Fetch the wishlist items
+  const wishlistCollectionRef = useMemoFirebase(() => collection(firestore, `users/${userId}/wishlistItems`), [firestore, userId]);
   const { data: wishlist, isLoading: isWishlistLoading } = useCollection<GiftType>(wishlistCollectionRef);
+
+  if (isUserLoading || isCurrentUserLoading) {
+    return <Loading />;
+  }
+
+  if (userError || !user) {
+    notFound();
+  }
+
+  const isCurrentUserPage = currentUser?.uid === userId;
 
   const handleAddGift = () => {
     setEditingGift(null);
@@ -112,10 +130,10 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
       <div>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 mb-4">
           <h2 className="text-3xl font-bold tracking-tight font-headline">
-            {isCurrentUser ? 'Mi Lista de Deseos' : `Lista de Deseos de ${user.name}`}
+            {isCurrentUserPage ? 'Mi Lista de Deseos' : `Lista de Deseos de ${user.name}`}
           </h2>
           <div className="flex gap-2">
-            {isCurrentUser ? (
+            {isCurrentUserPage ? (
               <Button onClick={handleAddGift}>
                 <Plus className="mr-2 h-4 w-4" /> Añadir Regalo
               </Button>
@@ -166,7 +184,7 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
                     </div>
                   </CardContent>
                   <CardFooter className="p-4 pt-0 bg-gray-50 dark:bg-gray-800">
-                    {isCurrentUser ? (
+                    {isCurrentUserPage ? (
                       <div className="w-full flex justify-end items-center gap-2">
                           {gift.isPurchased && <Badge variant="secondary">Comprado</Badge>}
                           <Button variant="ghost" size="icon" onClick={() => handleEditGift(gift)}><Edit className="size-4" /></Button>
@@ -189,12 +207,12 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
           <div className="text-center py-16 border-2 border-dashed rounded-lg">
             <Gift className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-lg font-medium">
-              {isCurrentUser ? 'Tu lista de deseos está vacía' : 'Esta lista de deseos está vacía'}
+              {isCurrentUserPage ? 'Tu lista de deseos está vacía' : 'Esta lista de deseos está vacía'}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {isCurrentUser ? '¡Añade algunos regalos para que tu amigo secreto sepa qué te gustaría!' : 'Parece que esta persona es un misterio.'}
+              {isCurrentUserPage ? '¡Añade algunos regalos para que tu amigo secreto sepa qué te gustaría!' : 'Parece que esta persona es un misterio.'}
             </p>
-            {isCurrentUser && (
+            {isCurrentUserPage && (
               <div className="mt-6 flex justify-center gap-2">
                 <Button onClick={handleAddGift}>
                   <Plus className="mr-2 h-4 w-4" /> Añadir Regalo
