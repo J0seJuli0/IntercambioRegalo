@@ -73,16 +73,18 @@ export default function DashboardPage() {
   const totalReceiverItems = receiverWishlist?.length || 0;
   const purchaseProgress = totalReceiverItems > 0 ? (purchasedItemsCount / totalReceiverItems) * 100 : 0;
   
-  const getNextDrawDate = () => {
+  const getNextChristmasDate = () => {
     const now = new Date();
-    let drawDate = new Date(now.getFullYear(), 11, 1); // December 1st
-    if (now > drawDate) {
-      drawDate = new Date(now.getFullYear() + 1, 11, 1);
+    // Month is 0-indexed, so 11 is December. Day is 25.
+    let exchangeDate = new Date(now.getFullYear(), 11, 25);
+    if (now > exchangeDate) {
+      // If Christmas has already passed this year, set it for next year.
+      exchangeDate = new Date(now.getFullYear() + 1, 11, 25);
     }
-    return drawDate;
+    return exchangeDate;
   };
 
-  const drawDate = getNextDrawDate();
+  const exchangeDate = getNextChristmasDate();
 
   if (isUserLoading || isAssignmentLoading || isReceiverLoading) {
     return (
@@ -116,11 +118,11 @@ export default function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="flex flex-col justify-center items-center bg-gradient-to-br from-primary to-red-400 text-primary-foreground">
           <CardHeader className="text-center pb-2">
-             <CardTitle className="text-2xl font-headline">Sorteo del Amigo Secreto</CardTitle>
-            <CardDescription className="text-primary-foreground/80">Tiempo restante para la asignación</CardDescription>
+             <CardTitle className="text-2xl font-headline">Fecha del Intercambio</CardTitle>
+            <CardDescription className="text-primary-foreground/80">Tiempo restante para la Navidad</CardDescription>
           </CardHeader>
           <CardContent className="p-4 w-full flex justify-center">
-            <CountdownTimer targetDate={drawDate} />
+            <CountdownTimer targetDate={exchangeDate} />
           </CardContent>
         </Card>
         <div className="grid gap-4 md:grid-cols-2">
@@ -194,7 +196,7 @@ export default function DashboardPage() {
               <div className="flex flex-col items-center justify-center text-center p-8 bg-secondary rounded-lg w-full">
                  <CalendarClock className="h-10 w-10 text-muted-foreground mb-3"/>
                 <p className="text-lg font-semibold">Tu amigo secreto aún no ha sido asignado.</p>
-                <p className="text-muted-foreground mt-1">El sorteo está en proceso. ¡Vuelve pronto para la gran revelación!</p>
+                <p className="text-muted-foreground mt-1">El sorteo se realizará en la fecha indicada arriba. ¡Vuelve pronto para la gran revelación!</p>
               </div>
             )}
           </CardContent>
@@ -239,3 +241,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
