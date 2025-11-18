@@ -47,7 +47,7 @@ const menuItems = [
 const adminMenuItems = [
     { href: "/admin/register-user", label: "Registrar Usuario", icon: UserPlus },
     { href: "/admin/draw", label: "Realizar Sorteo", icon: Shuffle },
-    // { href: "/admin/assignments", label: "Ver Asignaciones", icon: ClipboardList }
+    { href: "/admin/assignments", label: "Ver Asignaciones", icon: ClipboardList }
 ]
 
 export default function AppSidebar({ userProfile }: { userProfile: User | null }) {
