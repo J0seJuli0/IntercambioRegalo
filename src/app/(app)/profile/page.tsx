@@ -216,18 +216,19 @@ export default function ProfilePage() {
   };
 
   const onPasswordSubmit = async (values: z.infer<typeof passwordSchema>) => {
-    if (!auth.currentUser || !auth.currentUser.email) {
+     const currentUser = auth.currentUser;
+    if (!currentUser || !currentUser.email) {
       toast({ variant: "destructive", title: "Error", description: "No se encontró el usuario actual." });
       return;
     }
     
     try {
       // 1. Re-authenticate user for security
-      const credential = EmailAuthProvider.credential(auth.currentUser.email, values.currentPassword);
-      await reauthenticateWithCredential(auth.currentUser, credential);
+      const credential = EmailAuthProvider.credential(currentUser.email, values.currentPassword);
+      await reauthenticateWithCredential(currentUser, credential);
 
       // 2. Update password
-      await updatePassword(auth.currentUser, values.newPassword);
+      await updatePassword(currentUser, values.newPassword);
       
       toast({
         title: "¡Contraseña actualizada!",
@@ -243,8 +244,10 @@ export default function ProfilePage() {
         } else if (error.code === 'auth/weak-password') {
             description = "La nueva contraseña es demasiado débil.";
             passwordForm.setError("newPassword", { type: "manual", message: description });
+        } else {
+             console.error("Password Update Error:", error);
         }
-        console.error("Password Update Error:", error);
+
         toast({
             variant: "destructive",
             title: "Error al cambiar la contraseña",
@@ -443,5 +446,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
