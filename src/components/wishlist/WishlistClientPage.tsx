@@ -4,8 +4,9 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { Plus, Trash2, Edit, Link as LinkIcon, DollarSign, Gift, User as UserIcon } from 'lucide-react';
 import { collection, doc } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/provider';
+import { notFound } from 'next/navigation';
 
 import type { Gift as GiftType, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -18,26 +19,28 @@ import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import Loading from '@/app/(app)/loading';
 
 type WishlistClientPageProps = {
-  user: User;
-  isCurrentUser: boolean;
+  userId: string;
 };
 
-export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPageProps) {
+export function WishlistClientPage({ userId }: WishlistClientPageProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { user: currentUser } = useUser();
+  const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
 
   const [isAddGiftOpen, setAddGiftOpen] = useState(false);
   const [editingGift, setEditingGift] = useState<GiftType | null>(null);
 
-  const wishlistCollectionRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return collection(firestore, `users/${user.id}/wishlistItems`);
-  }, [firestore, user]);
+  // Fetch the profile of the user whose wishlist is being viewed
+  const userDocRef = useMemoFirebase(() => doc(firestore, `users/${userId}`), [firestore, userId]);
+  const { data: user, isLoading: isUserLoading, error: userError } = useDoc<User>(userDocRef);
 
+  const wishlistCollectionRef = useMemoFirebase(() => collection(firestore, `users/${userId}/wishlistItems`), [firestore, userId]);
   const { data: wishlist, isLoading: isWishlistLoading } = useCollection<GiftType>(wishlistCollectionRef);
+
+  const isCurrentUser = currentUser?.uid === userId;
 
   const handleAddGift = () => {
     setEditingGift(null);
@@ -50,7 +53,7 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
   };
 
   const handleAddOrUpdateGift = (giftData: NewGift | GiftType) => {
-    if (!wishlistCollectionRef) return;
+    if (!wishlistCollectionRef || !user) return;
 
     try {
       if ('id' in giftData) { // Existing gift
@@ -89,7 +92,15 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
       toast({ variant: 'destructive', title: 'Error al actualizar', description: error.message });
     }
   };
-
+  
+  if (isUserLoading || isCurrentUserLoading) {
+    return <Loading />;
+  }
+  
+  if (userError || !user) {
+    notFound();
+  }
+  
   return (
     <div className="flex-1 space-y-8 p-4 md:p-8 pt-6">
       {!isCurrentUser && (
