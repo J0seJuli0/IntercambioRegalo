@@ -10,12 +10,16 @@ export default function MyWishlistPage() {
     return <Loading />;
   }
   
-  if (!authUser) {
-    // This should be handled by the layout, but as a fallback
-    return <div>Usuario no encontrado. Por favor, inicia sesión.</div>;
+  // This check prevents rendering WishlistClientPage with an undefined userId
+  if (!user) {
+    return (
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-10rem)] text-center">
+            <h2 className="mt-4 text-2xl font-bold">Usuario no encontrado</h2>
+            <p className="mt-2 text-muted-foreground">Por favor, inicia sesión para ver tu lista de deseos.</p>
+        </div>
+    );
   }
 
-  // Pass the user's ID to the client page.
-  // WishlistClientPage will now handle fetching all necessary data.
-  return <WishlistClientPage userId={authUser.uid} />;
+  // Only render when we are sure user object with uid is available.
+  return <WishlistClientPage userId={user.uid} />;
 }
