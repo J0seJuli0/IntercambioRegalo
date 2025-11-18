@@ -41,13 +41,20 @@ export function WishlistClientPage({ userId }: WishlistClientPageProps) {
   const { data: user, isLoading: isUserLoading, error: userError } = useDoc<User>(userDocRef);
 
   // Fetch the wishlist items
-  const wishlistCollectionRef = useMemoFirebase(() => collection(firestore, `users/${userId}/wishlistItems`), [firestore, userId]);
+  const wishlistCollectionRef = useMemoFirebase(() => {
+    if(!userId) return null;
+    return collection(firestore, `users/${userId}/wishlistItems`)
+  }, [firestore, userId]);
   const { data: wishlist, isLoading: isWishlistLoading } = useCollection<GiftType>(wishlistCollectionRef);
+  
+  // Use a combined loading state
+  const isLoading = isUserLoading || isCurrentUserLoading;
 
-  if (isUserLoading || isCurrentUserLoading) {
+  if (isLoading) {
     return <Loading />;
   }
 
+  // After loading, if there's an error or the user is not found, then show 404.
   if (userError || !user) {
     notFound();
   }
