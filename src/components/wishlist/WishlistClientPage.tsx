@@ -13,11 +13,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { AddGiftDialog, NewGift } from './AddGiftDialog';
-import AIGiftSuggester from '../ai/AIGiftSuggester';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { Sparkles, User as UserIcon } from 'lucide-react';
+import { User as UserIcon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import Loading from '@/app/(app)/loading';
 
@@ -47,7 +46,7 @@ export function WishlistClientPage({ userId }: WishlistClientPageProps) {
     return <Loading />;
   }
 
-  if (!user) {
+  if (userError || !user) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-10rem)] text-center">
         <UserIcon className="w-16 h-16 text-muted-foreground" />
@@ -133,12 +132,10 @@ export function WishlistClientPage({ userId }: WishlistClientPageProps) {
           Lista de Deseos
         </h2>
         <div className="flex gap-2">
-          {isCurrentUserPage ? (
+          {isCurrentUserPage && (
             <Button onClick={handleAddGift}>
               <Plus className="mr-2 h-4 w-4" /> Añadir Regalo
             </Button>
-          ) : (
-             <AIGiftSuggester wishlistItems={wishlist?.map(i => i.name) || []} userInterests={user.interests || ''} />
           )}
         </div>
       </div>
