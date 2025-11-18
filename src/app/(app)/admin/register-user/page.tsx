@@ -2,10 +2,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  createUserWithEmailAndPassword,
-} from "firebase/auth";
-import { doc } from "firebase/firestore";
 import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
@@ -18,10 +14,10 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useFirestore, setDocumentNonBlocking, useAuth } from "@/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, User, Mail, KeyRound } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { createUser } from "@/ai/flows/create-user-flow";
 
 const formSchema = z.object({
   fullName: z.string().min(1, { message: "El nombre completo es requerido." }),
@@ -31,8 +27,6 @@ const formSchema = z.object({
 });
 
 export default function RegisterUserPage() {
-  const firestore = useFirestore();
-  const auth = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -47,17 +41,16 @@ export default function RegisterUserPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
-
-      const userRef = doc(firestore, "users", user.uid);
-      setDocumentNonBlocking(userRef, {
-        id: user.uid,
-        name: values.fullName,
-        email: user.email,
-        profilePictureUrl: null,
+      const result = await createUser({
+        email: values.email,
+        password: values.password,
+        displayName: values.fullName,
         tipo_user: values.tipo_user,
-      }, { merge: false });
+      });
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
       
       toast({
         title: "¡Usuario Creado!",
@@ -67,9 +60,9 @@ export default function RegisterUserPage() {
       form.reset();
 
     } catch (error: any) {
-      console.error("Admin User Creation Error:", error.code, error.message);
+      console.error("Admin User Creation Error:", error);
       let description = "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.";
-      if (error.code === 'auth/email-already-in-use') {
+      if (error.message.includes('auth/email-already-exists')) {
         description = "Este correo electrónico ya está en uso.";
       }
       toast({
