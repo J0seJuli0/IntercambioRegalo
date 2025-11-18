@@ -13,6 +13,7 @@ import { firebaseConfig } from '@/firebase/config';
 // Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
   try {
+    // Using explicit config to avoid environment issues with applicationDefault()
     admin.initializeApp({
       credential: admin.credential.applicationDefault(),
       databaseURL: `https://${firebaseConfig.projectId}.firebaseio.com`,
@@ -49,6 +50,11 @@ const createUserFlow = ai.defineFlow(
     outputSchema: CreateUserOutputSchema,
   },
   async (input) => {
+    // Ensure admin is initialized before proceeding
+    if (!admin.apps.length) {
+       return { error: 'Firebase Admin SDK not initialized.' };
+    }
+    
     try {
       // Step 1: Create the user in Firebase Authentication
       const userRecord = await admin.auth().createUser({
