@@ -58,9 +58,9 @@ export default function ParticipantsPage() {
                    <AvatarImage src={user.profilePictureUrl || `https://avatar.vercel.sh/${user.id}.png`} data-ai-hint="person face" />
                   <AvatarFallback>{user.name ? user.name.charAt(0) : user.email.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <div>
-                  <CardTitle className="text-lg">{user.name || 'Usuario Anónimo'}</CardTitle>
-                  <CardDescription className="text-sm">{user.email}</CardDescription>
+                <div className="overflow-hidden">
+                  <CardTitle className="text-lg truncate">{user.name || 'Usuario Anónimo'}</CardTitle>
+                  <CardDescription className="text-sm truncate">{user.email}</CardDescription>
                 </div>
               </CardHeader>
             </Card>
