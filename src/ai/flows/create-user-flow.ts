@@ -3,8 +3,6 @@
  * @fileOverview A flow to create a Firebase user and a corresponding Firestore document.
  *
  * - createUser - A function that handles the user creation process on the server.
- * - CreateUserInputSchema - The input type for the createUser function.
- * - CreateUserOutputSchema - The return type for the createUser function.
  */
 
 import { ai } from '@/ai/genkit';
@@ -24,20 +22,20 @@ if (!admin.apps.length) {
   }
 }
 
-export const CreateUserInputSchema = z.object({
+const CreateUserInputSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   displayName: z.string(),
   tipo_user: z.number().min(1).max(2),
 });
 
-export const CreateUserOutputSchema = z.object({
+const CreateUserOutputSchema = z.object({
   uid: z.string().optional(),
   error: z.string().optional(),
 });
 
-export type CreateUserInput = z.infer<typeof CreateUserInputSchema>;
-export type CreateUserOutput = z.infer<typeof CreateUserOutputSchema>;
+type CreateUserInput = z.infer<typeof CreateUserInputSchema>;
+type CreateUserOutput = z.infer<typeof CreateUserOutputSchema>;
 
 export async function createUser(input: CreateUserInput): Promise<CreateUserOutput> {
     return createUserFlow(input);
