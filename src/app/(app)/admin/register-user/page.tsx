@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Image from "next/image";
+import { Auth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,17 +18,27 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, User, Mail, KeyRound } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createUser } from "@/ai/flows/create-user-flow";
+import { useAuth, useUser, setDocumentNonBlocking, useFirestore } from "@/firebase";
+import { doc } from "firebase/firestore";
 
 const formSchema = z.object({
   fullName: z.string().min(1, { message: "El nombre completo es requerido." }),
   email: z.string().email({ message: "Por favor ingresa un correo válido." }),
   password: z.string().min(6, { message: "La contraseña debe tener al menos 6 caracteres." }),
   tipo_user: z.coerce.number().min(1).max(2, "Tipo de usuario inválido"),
+  admin_password: z.string().min(1, { message: "Tu contraseña de admin es requerida."}),
 });
+
+async function reSignInAdmin(auth: Auth, adminEmail: string, adminPass: string) {
+  await signInWithEmailAndPassword(auth, adminEmail, adminPass);
+}
 
 export default function RegisterUserPage() {
   const { toast } = useToast();
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const { user: adminUser } = useUser();
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -36,40 +47,72 @@ export default function RegisterUserPage() {
       email: "",
       password: "",
       tipo_user: 1,
+      admin_password: ""
     },
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!adminUser || !adminUser.email) {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo encontrar la sesión del administrador." });
+        return;
+    }
+    
+    // Store admin credentials to re-login
+    const adminEmail = adminUser.email;
+    const adminPassword = values.admin_password;
+
     try {
-      const result = await createUser({
-        email: values.email,
-        password: values.password,
-        displayName: values.fullName,
-        tipo_user: values.tipo_user,
-      });
+        // 1. Create the new user. This will sign in as the new user automatically.
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const newUser = userCredential.user;
 
-      if (result.error) {
-        throw new Error(result.error);
-      }
-      
-      toast({
-        title: "¡Usuario Creado!",
-        description: `La cuenta para ${values.fullName} ha sido creada exitosamente.`,
-      });
+        // 2. Set the display name for the new user in Auth
+        // Note: updateProfile is available on the user object after creation
+        // but we need to get it from auth.currentUser
+        if (auth.currentUser) {
+            await auth.currentUser.updateProfile({ displayName: values.fullName });
+        }
+        
+        // 3. Create the user document in Firestore
+        const userRef = doc(firestore, "users", newUser.uid);
+        await setDocumentNonBlocking(userRef, {
+            id: newUser.uid,
+            name: values.fullName,
+            email: values.email,
+            profilePictureUrl: null,
+            tipo_user: values.tipo_user,
+        }, { merge: true });
+        
+        toast({
+            title: "¡Usuario Creado!",
+            description: `La cuenta para ${values.fullName} ha sido creada exitosamente.`,
+        });
 
-      form.reset();
+        form.reset();
 
     } catch (error: any) {
-      console.error("Admin User Creation Error:", error);
-      let description = "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.";
-      if (error.message.includes('auth/email-already-exists')) {
-        description = "Este correo electrónico ya está en uso.";
-      }
-      toast({
-        variant: "destructive",
-        title: "Error al crear usuario",
-        description,
-      });
+        console.error("Admin User Creation Error:", error);
+        let description = "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.";
+        if (error.code === 'auth/email-already-in-use') {
+            description = "Este correo electrónico ya está en uso.";
+        }
+        toast({
+            variant: "destructive",
+            title: "Error al crear usuario",
+            description,
+        });
+    } finally {
+        // 4. IMPORTANT: Re-sign in as the admin user
+        try {
+            await reSignInAdmin(auth, adminEmail, adminPassword);
+        } catch (reauthError) {
+             console.error("Admin re-authentication failed:", reauthError);
+             toast({
+                variant: "destructive",
+                title: "Error de sesión",
+                description: "No se pudo restaurar tu sesión de administrador. Por favor, inicia sesión de nuevo.",
+             });
+        }
     }
   }
 
@@ -132,11 +175,27 @@ export default function RegisterUserPage() {
                 name="password"
                 render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Contraseña Temporal</FormLabel>
+                      <FormLabel>Contraseña Temporal (para el nuevo usuario)</FormLabel>
                       <div className="relative">
                         <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <FormControl>
                             <Input type="password" {...field} className="pl-9" />
+                        </FormControl>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                )}
+                />
+                 <FormField
+                control={form.control}
+                name="admin_password"
+                render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tu Contraseña de Administrador</FormLabel>
+                      <div className="relative">
+                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <FormControl>
+                            <Input type="password" {...field} className="pl-9" placeholder="Ingresa tu propia contraseña" />
                         </FormControl>
                       </div>
                       <FormMessage />
