@@ -9,7 +9,7 @@ import Loading from "../../loading";
 
 export default function ParticipantWishlistPage() {
   const params = useParams();
-  const { user: currentUser } = useUser();
+  const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
   const firestore = useFirestore();
   const id = params.id as string;
 
@@ -20,7 +20,7 @@ export default function ParticipantWishlistPage() {
 
   const { data: user, isLoading, error } = useDoc<User>(userDocRef);
   
-  if (isLoading) {
+  if (isLoading || isCurrentUserLoading) {
     return <Loading />;
   }
 

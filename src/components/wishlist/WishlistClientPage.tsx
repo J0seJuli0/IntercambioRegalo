@@ -4,9 +4,8 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { Plus, Trash2, Edit, Link as LinkIcon, DollarSign, Gift, User as UserIcon } from 'lucide-react';
 import { collection, doc } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useDoc } from '@/firebase';
+import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/provider';
-import { notFound } from 'next/navigation';
 
 import type { Gift as GiftType, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -22,25 +21,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import Loading from '@/app/(app)/loading';
 
 type WishlistClientPageProps = {
-  userId: string;
+  user: User;
+  isCurrentUser: boolean;
 };
 
-export function WishlistClientPage({ userId }: WishlistClientPageProps) {
+export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPageProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
+  const { user: currentUser } = useUser();
 
   const [isAddGiftOpen, setAddGiftOpen] = useState(false);
   const [editingGift, setEditingGift] = useState<GiftType | null>(null);
 
-  // Fetch the profile of the user whose wishlist is being viewed
-  const userDocRef = useMemoFirebase(() => doc(firestore, `users/${userId}`), [firestore, userId]);
-  const { data: user, isLoading: isUserLoading, error: userError } = useDoc<User>(userDocRef);
-
-  const wishlistCollectionRef = useMemoFirebase(() => collection(firestore, `users/${userId}/wishlistItems`), [firestore, userId]);
+  const wishlistCollectionRef = useMemoFirebase(() => collection(firestore, `users/${user.id}/wishlistItems`), [firestore, user.id]);
   const { data: wishlist, isLoading: isWishlistLoading } = useCollection<GiftType>(wishlistCollectionRef);
-
-  const isCurrentUser = currentUser?.uid === userId;
 
   const handleAddGift = () => {
     setEditingGift(null);
@@ -93,17 +87,8 @@ export function WishlistClientPage({ userId }: WishlistClientPageProps) {
     }
   };
   
-  if (isUserLoading || isCurrentUserLoading) {
-    return <Loading />;
-  }
-  
-  if (userError || !user) {
-    notFound();
-  }
-  
   return (
     <div className="flex-1 space-y-8 p-4 md:p-8 pt-6">
-      {!isCurrentUser && (
         <Card>
           <CardHeader className="flex flex-col items-center text-center space-y-4">
               <Avatar className="h-24 w-24 border-4 border-primary">
@@ -123,7 +108,6 @@ export function WishlistClientPage({ userId }: WishlistClientPageProps) {
             </CardContent>
           )}
         </Card>
-      )}
 
       <div>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2 mb-4">

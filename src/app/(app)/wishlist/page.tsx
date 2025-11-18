@@ -1,21 +1,31 @@
 'use client';
 import { WishlistClientPage } from "@/components/wishlist/WishlistClientPage";
-import { useUser } from "@/firebase";
+import { useDoc, useFirestore, useUser } from "@/firebase";
 import Loading from "../loading";
+import { useMemoFirebase } from "@/firebase/provider";
+import { doc } from "firebase/firestore";
+import type { User } from "@/lib/types";
 
 export default function MyWishlistPage() {
-  const { user, isUserLoading } = useUser();
+  const { user: authUser, isUserLoading: isAuthUserLoading } = useUser();
+  const firestore = useFirestore();
 
-  if (isUserLoading) {
+  const userDocRef = useMemoFirebase(() => {
+    if (!authUser) return null;
+    return doc(firestore, 'users', authUser.uid);
+  }, [firestore, authUser]);
+
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<User>(userDocRef);
+
+  if (isAuthUserLoading || isProfileLoading) {
     return <Loading />;
   }
   
-  if (!user) {
+  if (!authUser || !userProfile) {
     // This should be handled by the layout, but as a fallback
     return <div>Usuario no encontrado. Por favor, inicia sesión.</div>;
   }
 
-  // The WishlistClientPage component is now responsible for fetching its own data
-  // based on the userId prop. This simplifies this page and prevents rendering loops.
-  return <WishlistClientPage userId={user.uid} />;
+  // Pass the full user profile object to the client page
+  return <WishlistClientPage user={userProfile} isCurrentUser={true} />;
 }
