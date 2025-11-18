@@ -105,6 +105,7 @@ service cloud.firestore {
       // Admin can create and update assignments during the draw
       allow write: if isAdmin();
 
+      // Admin can delete assignments to reset the draw
       allow delete: if isAdmin();
     }
 
