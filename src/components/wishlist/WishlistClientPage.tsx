@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { Plus, Trash2, Edit, Link as LinkIcon, DollarSign, Gift } from 'lucide-react';
 import { collection, doc } from 'firebase/firestore';
-import { useCollection, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useUser, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { useMemoFirebase } from '@/firebase/provider';
 
 import type { Gift as GiftType, User } from '@/lib/types';
@@ -17,27 +17,47 @@ import AIGiftSuggester from '../ai/AIGiftSuggester';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '../ui/skeleton';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, User as UserIcon } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import Loading from '@/app/(app)/loading';
 
 type WishlistClientPageProps = {
-  user: User;
-  isCurrentUser: boolean;
+  userId: string;
 };
 
-export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPageProps) {
+export function WishlistClientPage({ userId }: WishlistClientPageProps) {
   const firestore = useFirestore();
+  const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
   const { toast } = useToast();
 
   const [isAddGiftOpen, setAddGiftOpen] = useState(false);
   const [editingGift, setEditingGift] = useState<GiftType | null>(null);
+  
+  // --- Data Fetching ---
+  const userDocRef = useMemoFirebase(() => doc(firestore, 'users', userId), [firestore, userId]);
+  const { data: user, isLoading: isUserLoading, error: userError } = useDoc<User>(userDocRef);
 
-  const wishlistCollectionRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return collection(firestore, `users/${user.id}/wishlistItems`);
-  }, [firestore, user]);
-
+  const wishlistCollectionRef = useMemoFirebase(() => collection(firestore, `users/${userId}/wishlistItems`), [firestore, userId]);
   const { data: wishlist, isLoading: isWishlistLoading } = useCollection<GiftType>(wishlistCollectionRef);
 
+  const isCurrentUserPage = currentUser?.uid === userId;
+  
+  // --- Loading and Error States ---
+  if (isUserLoading || isCurrentUserLoading) {
+    return <Loading />;
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-10rem)] text-center">
+        <UserIcon className="w-16 h-16 text-muted-foreground" />
+        <h2 className="mt-4 text-2xl font-bold">Usuario no encontrado</h2>
+        <p className="mt-2 text-muted-foreground">No pudimos encontrar el perfil para este participante.</p>
+      </div>
+    );
+  }
+
+  // --- Handlers ---
   const handleAddGift = () => {
     setEditingGift(null);
     setAddGiftOpen(true);
@@ -53,11 +73,11 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
 
     try {
       if ('id' in giftData) { // Existing gift
-        const giftRef = doc(firestore, `users/${user.id}/wishlistItems`, giftData.id);
+        const giftRef = doc(firestore, `users/${userId}/wishlistItems`, giftData.id);
         updateDocumentNonBlocking(giftRef, { ...giftData });
         toast({ title: '¡Regalo actualizado!', description: `${giftData.name} ha sido actualizado en tu lista.` });
       } else { // New gift
-        addDocumentNonBlocking(wishlistCollectionRef, { ...giftData, isPurchased: false, userId: user.id });
+        addDocumentNonBlocking(wishlistCollectionRef, { ...giftData, isPurchased: false, userId: userId });
         toast({ title: '¡Regalo añadido!', description: `${giftData.name} ha sido añadido a tu lista.` });
       }
     } catch (error: any) {
@@ -66,9 +86,9 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
   };
 
   const handleDeleteGift = (giftId: string) => {
-     if (!user) return;
+     if (!userId) return;
      try {
-       const giftRef = doc(firestore, `users/${user.id}/wishlistItems`, giftId);
+       const giftRef = doc(firestore, `users/${userId}/wishlistItems`, giftId);
        deleteDocumentNonBlocking(giftRef);
        toast({ title: 'Regalo eliminado', description: 'El regalo ha sido eliminado de tu lista.' });
      } catch (error: any) {
@@ -77,9 +97,9 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
   };
   
   const handleTogglePurchased = (gift: GiftType) => {
-    if (!user) return;
+    if (!userId) return;
     try {
-      const giftRef = doc(firestore, `users/${user.id}/wishlistItems`, gift.id);
+      const giftRef = doc(firestore, `users/${userId}/wishlistItems`, gift.id);
       updateDocumentNonBlocking(giftRef, { isPurchased: !gift.isPurchased });
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error al actualizar', description: error.message });
@@ -88,17 +108,35 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      {/* Profile Header */}
+      <Card className="mb-6">
+        <CardContent className="p-6 flex flex-col md:flex-row items-center gap-6">
+          <Avatar className="w-24 h-24 text-3xl border-4 border-primary">
+            <AvatarImage src={user.profilePictureUrl || undefined} alt={user.name} data-ai-hint="person face" />
+            <AvatarFallback>{user.name?.charAt(0) || '?'}</AvatarFallback>
+          </Avatar>
+          <div className="text-center md:text-left">
+            <h1 className="text-3xl font-bold font-headline">{user.name}</h1>
+            <p className="text-muted-foreground">{user.email}</p>
+            {user.interests && (
+                <p className="mt-2 text-sm text-foreground italic">
+                    Intereses: {user.interests}
+                </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Wishlist Section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight font-headline">
-          {isCurrentUser ? 'Mi Lista de Deseos' : `Lista de ${user.name}`}
+        <h2 className="text-2xl font-bold tracking-tight font-headline">
+          Lista de Deseos
         </h2>
         <div className="flex gap-2">
-          {isCurrentUser ? (
-            <>
-              <Button onClick={handleAddGift}>
-                <Plus className="mr-2 h-4 w-4" /> Añadir Regalo
-              </Button>
-            </>
+          {isCurrentUserPage ? (
+            <Button onClick={handleAddGift}>
+              <Plus className="mr-2 h-4 w-4" /> Añadir Regalo
+            </Button>
           ) : (
              <AIGiftSuggester wishlistItems={wishlist?.map(i => i.name) || []} userInterests={user.interests || ''} />
           )}
@@ -145,7 +183,7 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
                   </div>
                 </CardContent>
                 <CardFooter className="p-4 pt-0 bg-gray-50 dark:bg-gray-800">
-                  {isCurrentUser ? (
+                  {isCurrentUserPage ? (
                      <div className="w-full flex justify-end items-center gap-2">
                         {gift.isPurchased && <Badge variant="secondary">Comprado</Badge>}
                         <Button variant="ghost" size="icon" onClick={() => handleEditGift(gift)}><Edit className="size-4" /></Button>
@@ -153,7 +191,7 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
                      </div>
                   ) : (
                     <div className="flex items-center space-x-2">
-                      <Checkbox id={`purchased-${gift.id}`} checked={gift.isPurchased} onCheckedChange={() => handleTogglePurchased(gift)} disabled={gift.isPurchased && gift.purchasedBy !== user?.id } />
+                      <Checkbox id={`purchased-${gift.id}`} checked={gift.isPurchased} onCheckedChange={() => handleTogglePurchased(gift)} disabled={gift.isPurchased && gift.purchasedBy !== currentUser?.uid } />
                       <Label htmlFor={`purchased-${gift.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                         {gift.isPurchased ? 'Comprado' : 'Marcar como comprado'}
                       </Label>
@@ -168,12 +206,12 @@ export function WishlistClientPage({ user, isCurrentUser }: WishlistClientPagePr
         <div className="text-center py-16 border-2 border-dashed rounded-lg">
           <Gift className="mx-auto h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 text-lg font-medium">
-            {isCurrentUser ? 'Tu lista de deseos está vacía' : 'Esta lista de deseos está vacía'}
+            {isCurrentUserPage ? 'Tu lista de deseos está vacía' : 'Esta lista de deseos está vacía'}
           </h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            {isCurrentUser ? '¡Añade algunos regalos para que tu amigo secreto sepa qué te gustaría!' : 'Parece que esta persona es un misterio.'}
+            {isCurrentUserPage ? '¡Añade algunos regalos para que tu amigo secreto sepa qué te gustaría!' : 'Parece que esta persona es un misterio.'}
           </p>
-          {isCurrentUser && (
+          {isCurrentUserPage && (
             <div className="mt-6 flex justify-center gap-2">
               <Button onClick={handleAddGift}>
                 <Plus className="mr-2 h-4 w-4" /> Añadir Regalo
