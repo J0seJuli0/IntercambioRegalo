@@ -11,7 +11,7 @@ export default function MyWishlistPage() {
   }
   
   // This check prevents rendering WishlistClientPage with an undefined userId
-  if (!user) {
+  if (!authUser) {
     return (
         <div className="flex flex-col items-center justify-center h-[calc(100vh-10rem)] text-center">
             <h2 className="mt-4 text-2xl font-bold">Usuario no encontrado</h2>
@@ -21,5 +21,5 @@ export default function MyWishlistPage() {
   }
 
   // Only render when we are sure user object with uid is available.
-  return <WishlistClientPage userId={user.uid} />;
+  return <WishlistClientPage userId={authUser.uid} />;
 }
