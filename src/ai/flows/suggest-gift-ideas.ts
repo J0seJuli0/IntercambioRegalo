@@ -40,7 +40,8 @@ const prompt = ai.definePrompt({
 
 You will receive a list of items from a wishlist and the general interests of a person. You will suggest gift ideas based on this information.
 
-Wishlist Items: {{#each wishlistItems}}- {{{this}}}
+Wishlist Items: 
+{{#each wishlistItems}}- {{{this}}}
 {{/each}}
 
 User Interests: {{{userInterests}}}
