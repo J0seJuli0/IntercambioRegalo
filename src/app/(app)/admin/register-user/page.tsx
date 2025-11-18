@@ -18,8 +18,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, User, Mail, KeyRound } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth, useUser, setDocumentNonBlocking, useFirestore } from "@/firebase";
-import { doc } from "firebase/firestore";
 
 const formSchema = z.object({
   fullName: z.string().min(1, { message: "El nombre completo es requerido." }),
@@ -34,11 +32,9 @@ async function reSignInAdmin(auth: Auth, adminEmail: string, adminPass: string) 
 }
 
 export default function RegisterUserPage() {
-  const { toast } = useToast();
-  const auth = useAuth();
   const firestore = useFirestore();
-  const { user: adminUser } = useUser();
-
+  const auth = useAuth();
+  const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,67 +48,37 @@ export default function RegisterUserPage() {
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!adminUser || !adminUser.email) {
-        toast({ variant: "destructive", title: "Error", description: "No se pudo encontrar la sesión del administrador." });
-        return;
-    }
-    
-    // Store admin credentials to re-login
-    const adminEmail = adminUser.email;
-    const adminPassword = values.admin_password;
-
     try {
-        // 1. Create the new user. This will sign in as the new user automatically.
-        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-        const newUser = userCredential.user;
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
 
-        // 2. Set the display name for the new user in Auth
-        // Note: updateProfile is available on the user object after creation
-        // but we need to get it from auth.currentUser
-        if (auth.currentUser) {
-            await auth.currentUser.updateProfile({ displayName: values.fullName });
-        }
-        
-        // 3. Create the user document in Firestore
-        const userRef = doc(firestore, "users", newUser.uid);
-        await setDocumentNonBlocking(userRef, {
-            id: newUser.uid,
-            name: values.fullName,
-            email: values.email,
-            profilePictureUrl: null,
-            tipo_user: values.tipo_user,
-        }, { merge: true });
-        
-        toast({
-            title: "¡Usuario Creado!",
-            description: `La cuenta para ${values.fullName} ha sido creada exitosamente.`,
-        });
+      const userRef = doc(firestore, "users", user.uid);
+      setDocumentNonBlocking(userRef, {
+        id: user.uid,
+        name: values.fullName,
+        email: user.email,
+        profilePictureUrl: null,
+        tipo_user: values.tipo_user,
+      }, { merge: false });
+      
+      toast({
+        title: "¡Usuario Creado!",
+        description: `La cuenta para ${values.fullName} ha sido creada exitosamente.`,
+      });
 
         form.reset();
 
     } catch (error: any) {
-        console.error("Admin User Creation Error:", error);
-        let description = "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.";
-        if (error.code === 'auth/email-already-in-use') {
-            description = "Este correo electrónico ya está en uso.";
-        }
-        toast({
-            variant: "destructive",
-            title: "Error al crear usuario",
-            description,
-        });
-    } finally {
-        // 4. IMPORTANT: Re-sign in as the admin user
-        try {
-            await reSignInAdmin(auth, adminEmail, adminPassword);
-        } catch (reauthError) {
-             console.error("Admin re-authentication failed:", reauthError);
-             toast({
-                variant: "destructive",
-                title: "Error de sesión",
-                description: "No se pudo restaurar tu sesión de administrador. Por favor, inicia sesión de nuevo.",
-             });
-        }
+      console.error("Admin User Creation Error:", error.code, error.message);
+      let description = "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.";
+      if (error.code === 'auth/email-already-in-use') {
+        description = "Este correo electrónico ya está en uso.";
+      }
+      toast({
+        variant: "destructive",
+        title: "Error al crear usuario",
+        description,
+      });
     }
   }
 
