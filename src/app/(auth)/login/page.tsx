@@ -78,7 +78,7 @@ export default function LoginPage() {
         <Logo className="mb-4 justify-center" />
         <CardTitle className="text-2xl font-headline">Iniciar Sesión</CardTitle>
         <CardDescription>
-          Ingresa tu correo para acceder a tu cuenta de Amigo Secreto AI
+          Ingresa tu correo para acceder a tu cuenta de Mi Amigo Secreto
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -102,12 +102,7 @@ export default function LoginPage() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <div className="flex items-center">
-                    <FormLabel>Contraseña</FormLabel>
-                    <Link href="/forgot-password" className="ml-auto inline-block text-sm underline">
-                      ¿Olvidaste tu contraseña?
-                    </Link>
-                  </div>
+                  <FormLabel>Contraseña</FormLabel>
                   <FormControl>
                     <Input type="password" {...field} />
                   </FormControl>
