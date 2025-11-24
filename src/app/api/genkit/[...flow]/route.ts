@@ -1,6 +1,6 @@
 'use server';
 import { ai } from "@/ai/genkit";
-import { nextHandler } from "@genkit-ai/next";
+import * as genkitNext from "@genkit-ai/next";
 import "@/ai/dev";
 
-export const POST = nextHandler(ai);
+export const POST = genkitNext.nextHandler(ai);
