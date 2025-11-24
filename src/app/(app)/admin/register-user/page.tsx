@@ -4,6 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import Image from "next/image";
 import { Auth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { useAuth, useFirestore, setDocumentNonBlocking } from "@/firebase";
+import { doc } from 'firebase/firestore';
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -48,6 +51,16 @@ export default function RegisterUserPage() {
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    const adminUser = auth.currentUser;
+    if (!adminUser || !adminUser.email) {
+       toast({
+        variant: "destructive",
+        title: "Error de autenticación",
+        description: "No se pudo verificar la sesión del administrador.",
+      });
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
@@ -66,14 +79,28 @@ export default function RegisterUserPage() {
         description: `La cuenta para ${values.fullName} ha sido creada exitosamente.`,
       });
 
-        form.reset();
+      // Re-login as admin
+      await reSignInAdmin(auth, adminUser.email, values.admin_password);
+
+      form.reset();
 
     } catch (error: any) {
       console.error("Admin User Creation Error:", error.code, error.message);
       let description = "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.";
       if (error.code === 'auth/email-already-in-use') {
         description = "Este correo electrónico ya está en uso.";
+      } else if (error.code === 'auth/weak-password') {
+         description = "La contraseña es demasiado débil.";
       }
+      
+      // Attempt to re-login admin even if user creation fails to keep the session
+      try {
+         await reSignInAdmin(auth, adminUser.email, values.admin_password);
+      } catch (reLoginError) {
+         console.error("Failed to re-login admin:", reLoginError);
+         description += " Hubo un problema al restaurar tu sesión de admin.";
+      }
+
       toast({
         variant: "destructive",
         title: "Error al crear usuario",
